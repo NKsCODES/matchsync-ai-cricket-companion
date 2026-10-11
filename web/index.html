@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MatchSync</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Mukta:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- app:start -->
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>MatchSync</h1>
+      <p>Kya hua? You looked away from the match. Here is what happened, and whether to worry.</p>
+    </div>
+    <div class="prefs">
+      <div class="seg">
+        <span class="seg-label" id="side-label">I support</span>
+        <div class="seg-buttons" id="side-seg" role="group" aria-labelledby="side-label">
+          <button type="button" id="side-KON" data-side="KON">Kings</button>
+          <button type="button" id="side-SAH" data-side="SAH">Strikers</button>
+          <button type="button" id="side-neutral" data-side="neutral">Neutral</button>
+        </div>
+      </div>
+      <div class="seg">
+        <span class="seg-label" id="voice-label">Talk to me in</span>
+        <div class="seg-buttons" id="voice-seg" role="group" aria-labelledby="voice-label">
+          <button type="button" id="voice-hinglish" data-voice="hinglish">Hinglish</button>
+          <button type="button" id="voice-simple" data-voice="simple">Simple English</button>
+          <button type="button" id="voice-analyst" data-voice="analyst">Analyst</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="cols">
+    <main class="app">
+      <section class="board" aria-label="Live score">
+        <div class="board-status">
+          <span class="live" id="live-tag"><span class="live-dot"></span><span id="status-text">Live</span></span>
+          <span id="innings-text">2nd innings</span>
+          <span class="board-sim">Simulated match, fictional teams</span>
+        </div>
+        <div class="board-main">
+          <div class="board-score">
+            <span class="b-team" id="bat-team">Kings</span>
+            <span class="b-score" id="bat-score">0/0</span>
+            <span class="b-overs" id="bat-overs">0.0 ov</span>
+          </div>
+          <div class="board-side">
+            <span id="other-line"></span>
+            <span id="equation"></span>
+          </div>
+        </div>
+        <dl class="board-facts">
+          <div><dt>Required rate</dt><dd id="rrr">0</dd></div>
+          <div><dt>Current rate</dt><dd id="crr">0</dd></div>
+          <div class="wide"><dt>At the crease</dt><dd id="crease"></dd></div>
+        </dl>
+        <div class="board-balls">
+          <span class="balls-label">Last 12 balls</span>
+          <ol id="recent" class="balls"></ol>
+        </div>
+        <div class="wpbar" aria-label="Win chance estimate">
+          <div class="wpbar-labels"><span id="wp-left"></span><span class="wpbar-title">Win chance, model estimate</span><span id="wp-right"></span></div>
+          <div class="wpbar-track"><div class="wpbar-fill" id="wp-fill"></div></div>
+        </div>
+      </section>
+
+      <section class="away" id="away" aria-label="Catch up">
+        <p class="away-line" id="away-line"></p>
+        <div class="chips" id="window-chips" role="group" aria-label="Catch me up on">
+          <button type="button" id="win-away" data-win="away">Since I looked away</button>
+          <button type="button" id="win-2" data-win="2">Last 2 overs</button>
+          <button type="button" id="win-5" data-win="5">Last 5 overs</button>
+          <button type="button" id="win-inn" data-win="inn">This innings</button>
+          <button type="button" id="win-match" data-win="match">Whole match</button>
+        </div>
+        <div class="away-actions">
+          <button type="button" class="btn primary" id="catchup">Catch me up</button>
+          <button type="button" class="btn quiet" id="caught">I am caught up</button>
+          <button type="button" class="btn quiet" id="lookaway-inline">Demo: look away for 3 overs</button>
+        </div>
+      </section>
+
+      <article class="recap" id="recap" aria-live="polite">
+        <div class="recap-meta">
+          <span class="tag" id="recap-source">Instant recap</span>
+          <span class="recap-window" id="recap-window"></span>
+        </div>
+        <h2 class="recap-headline" id="recap-headline"></h2>
+        <div class="thennow">
+          <div class="tn">
+            <span class="tn-label" id="tn-then-label">When you left</span>
+            <span class="tn-score" id="tn-then-score"></span>
+            <span class="tn-sub" id="tn-then-sub"></span>
+          </div>
+          <div class="tn-arrow" aria-hidden="true">&rarr;</div>
+          <div class="tn">
+            <span class="tn-label">Now</span>
+            <span class="tn-score" id="tn-now-score"></span>
+            <span class="tn-sub" id="tn-now-sub"></span>
+          </div>
+        </div>
+        <p class="recap-story" id="recap-story"></p>
+
+        <figure class="worm">
+          <figcaption><span id="worm-title">Win chance, ball by ball</span><span class="worm-key"><i class="key-missed"></i>what you missed</span></figcaption>
+          <div class="worm-box"><svg id="worm" viewBox="0 0 640 196" role="img" aria-label="Win chance through the match"></svg></div>
+        </figure>
+
+        <h3 class="sub">What mattered</h3>
+        <ol class="moments" id="recap-moments"></ol>
+        <p class="moments-empty" id="moments-empty" hidden>Nothing big. No wickets in a bunch, no runaway overs.</p>
+
+        <div class="watch">
+          <h3 class="sub">Watch next</h3>
+          <p id="recap-watch"></p>
+        </div>
+        <p class="recap-note" id="recap-note"></p>
+      </article>
+
+      <section class="ask" aria-label="Ask about this match">
+        <h2>Ask about this match</h2>
+        <div class="chips" id="ask-chips"></div>
+        <form id="ask-form" class="ask-form">
+          <label class="sr" for="ask-input">Your question</label>
+          <input id="ask-input" type="text" maxlength="200" autocomplete="off" placeholder="Why did the win chance drop?">
+          <button type="submit" class="btn primary" id="ask-send">Ask</button>
+        </form>
+        <div class="thread" id="ask-thread"></div>
+      </section>
+    </main>
+
+    <aside class="rail">
+      <section class="panel">
+        <h2>Demo controls</h2>
+        <p>This is a replay of a simulated match, sped up. Act like a fan who keeps getting pulled away.</p>
+        <div class="ctl-row">
+          <button type="button" class="btn" id="play">Pause</button>
+          <label class="sr" for="speed">Replay speed</label>
+          <select id="speed">
+            <option value="10000">10 seconds a ball</option>
+            <option value="3000">3 seconds a ball</option>
+            <option value="700">Fast forward</option>
+          </select>
+        </div>
+        <button type="button" class="btn wide" id="lookaway">Look away for 3 overs</button>
+        <label class="ctl-label" for="scrub">Jump to any point <output id="scrub-out" for="scrub"></output></label>
+        <input type="range" id="scrub" min="0" max="100" step="1" value="0">
+        <div class="ctl-row">
+          <button type="button" class="btn" id="jump-start">Back to over 14</button>
+          <button type="button" class="btn" id="jump-last">Go to the last over</button>
+        </div>
+        <p class="ai-line"><span class="ai-key">AI narrator</span> <span id="ai-status">Checking</span></p>
+        <p class="hint">Switching tabs works too. Leave this page for a while and it will have a catch up waiting.</p>
+      </section>
+
+      <section class="panel notes">
+        <h2>Why this exists</h2>
+        <p>Nobody watches all 40 overs. Fans follow a match in snatches, between work, a cab ride and dinner. When they look back, the scorecard gives them the score but not the story.</p>
+        <p>A fan coming back asks three things. What did I miss? Is it good or bad for my team? What do I watch now? This answers those three, in the fan's own voice, in about 20 seconds.</p>
+        <h3>Why it can be trusted</h3>
+        <p>A facts engine reads the ball by ball feed and ranks moments by how far they moved the win chance. The AI only picks the words. Every number it writes is checked against the fact sheet, and a line that fails is replaced by the engine's own line.</p>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <p>Prototype by Niraj Koli. The match, teams and players are fictional. Win chance is a simple model estimate for storytelling, not odds.</p>
+  </footer>
+</div>
+<!-- app:end -->
+<script src="data.js"></script>
+<script src="prompts.js"></script>
+<script src="engine.js"></script>
+<script src="guard.js"></script>
+<script src="voices.js"></script>
+<script src="ai.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

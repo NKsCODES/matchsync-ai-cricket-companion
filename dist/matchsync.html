@@ -1,0 +1,1903 @@
+<title>MatchSync</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Mukta:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a phone width match companion on the left (scoreboard, catch up, ask), a reviewer rail on the right.
+   Look: a scorer's book. Paper, blue ink, red for wickets, and a floodlit scoreboard on top. */
+:root {
+  --paper: #EDF1E8;
+  --surface: #F9FAF4;
+  --ink: #13231E;
+  --muted: #55665E;
+  --line: #CBD5C9;
+  --line-soft: #DFE6DC;
+  --accent: #2440BF;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DDE2F8;
+  --good: #1A7748;
+  --good-soft: #D6ECDC;
+  --bad: #BF3429;
+  --bad-soft: #F6DCD8;
+  --missed: #C99214;
+  --missed-soft: #F8EBC2;
+  --board: #12241E;
+  --board-ink: #F1F5EA;
+  --board-muted: #A4B5AA;
+  --board-line: #2B4239;
+  --board-chip: #1D342C;
+  --board-track: #5E7268;
+  --ball-four: #2C4BD6;
+  --ball-six: #E0A82A;
+  --ball-six-ink: #1A1404;
+  --ball-wicket: #D0443A;
+  --ball-ink: #FFFFFF;
+  --live: #F0584A;
+  --display: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --body: 'Mukta', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1614; --surface: #14201C; --ink: #E6EDE5; --muted: #94A59C; --line: #2A3A34; --line-soft: #1F2C27;
+    --accent: #9DADFF; --accent-ink: #0D1614; --accent-soft: #212A52;
+    --good: #5FCB92; --good-soft: #153425; --bad: #F38478; --bad-soft: #401D1A; --missed: #E3B44C; --missed-soft: #372D12;
+    --board: #08100E; --board-ink: #F1F5EA; --board-muted: #9DAEA3; --board-line: #22342D; --board-chip: #16251F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D1614; --surface: #14201C; --ink: #E6EDE5; --muted: #94A59C; --line: #2A3A34; --line-soft: #1F2C27;
+  --accent: #9DADFF; --accent-ink: #0D1614; --accent-soft: #212A52;
+  --good: #5FCB92; --good-soft: #153425; --bad: #F38478; --bad-soft: #401D1A; --missed: #E3B44C; --missed-soft: #372D12;
+  --board: #08100E; --board-ink: #F1F5EA; --board-muted: #9DAEA3; --board-line: #22342D; --board-chip: #16251F;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
+ol { padding: 0; list-style: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ---------- header ---------- */
+.top { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: flex-end; justify-content: space-between; }
+.brand { min-width: 0; }
+.brand h1 { font-family: var(--display); font-weight: 700; font-size: 44px; line-height: 0.95; letter-spacing: 0.01em; text-transform: uppercase; }
+.brand p { color: var(--muted); max-width: 46ch; margin-top: 6px; }
+.prefs { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.seg { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.seg-label, .balls-label, .tn-label, .ctl-label, .ai-key, .wpbar-title {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.seg-buttons { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); overflow: hidden; }
+.seg-buttons button { border: 0; background: transparent; padding: 7px 12px; font-weight: 500; border-right: 1px solid var(--line); }
+.seg-buttons button:last-child { border-right: 0; }
+.seg-buttons button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; align-items: start; }
+.app { min-width: 0; display: flex; flex-direction: column; gap: 16px; max-width: 680px; }
+.rail { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- scoreboard ---------- */
+.board { background: var(--board); color: var(--board-ink); border-radius: 6px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+.board-status { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 13px; color: var(--board-muted); }
+.live { display: inline-flex; align-items: center; gap: 6px; color: var(--board-ink); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
+.live.on .live-dot { animation: pulse 1.6s ease-in-out infinite; }
+.live.off .live-dot { background: var(--board-muted); }
+@keyframes pulse { 50% { opacity: 0.25; } }
+.board-sim { margin-left: auto; }
+.board-main { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-end; justify-content: space-between; }
+.board-score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; font-family: var(--display); min-width: 0; }
+.b-team { font-size: 28px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.b-score { font-size: 68px; font-weight: 700; line-height: 0.9; font-variant-numeric: tabular-nums; }
+.b-overs { font-size: 22px; font-weight: 500; color: var(--board-muted); font-variant-numeric: tabular-nums; }
+.board-side { display: flex; flex-direction: column; gap: 2px; text-align: right; min-width: 0; margin-left: auto; }
+#other-line { color: var(--board-muted); font-size: 14px; }
+#equation { font-weight: 600; font-size: 17px; }
+.board-facts { display: flex; flex-wrap: wrap; gap: 10px 28px; border-top: 1px solid var(--board-line); padding-top: 12px; }
+.board-facts div { display: flex; flex-direction: column; min-width: 0; }
+.board-facts dt { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--board-muted); }
+.board-facts dd { font-family: var(--display); font-size: 24px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.board-facts .wide dd { font-size: 20px; }
+.board-balls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.board-balls .balls-label { color: var(--board-muted); }
+.balls { display: flex; flex-wrap: wrap; gap: 5px; }
+.balls li {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--display); font-weight: 600; font-size: 16px; line-height: 1;
+  background: var(--board-chip); color: var(--board-ink); border: 1px solid var(--board-line);
+}
+.balls li.t-dot { color: var(--board-muted); }
+.balls li.t-four { background: var(--ball-four); border-color: var(--ball-four); color: var(--ball-ink); }
+.balls li.t-six { background: var(--ball-six); border-color: var(--ball-six); color: var(--ball-six-ink); }
+.balls li.t-wicket { background: var(--ball-wicket); border-color: var(--ball-wicket); color: var(--ball-ink); }
+.balls li.t-extra { font-size: 12px; }
+.wpbar { display: flex; flex-direction: column; gap: 5px; }
+.wpbar-labels { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wpbar-title { color: var(--board-muted); text-align: center; }
+.wpbar-labels span:first-child, .wpbar-labels span:last-child { white-space: nowrap; }
+.wpbar-track { height: 8px; border-radius: 4px; background: var(--board-track); overflow: hidden; }
+.wpbar-fill { height: 100%; background: var(--board-ink); width: 50%; transition: width 0.5s ease; }
+
+/* ---------- away band ---------- */
+.away { background: var(--missed-soft); border: 1px solid var(--missed); border-radius: 6px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.away-line { font-weight: 600; font-size: 17px; text-wrap: balance; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 500;
+}
+.away .chips button { border-color: var(--missed); }
+.chips button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.chips button:disabled { opacity: 0.45; cursor: default; }
+.away-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 8px 14px; font-weight: 600; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); padding: 9px 20px; font-size: 17px; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.primary:disabled { opacity: 0.6; cursor: progress; }
+.btn.quiet { background: transparent; border-color: transparent; text-decoration: underline; text-underline-offset: 3px; font-weight: 500; padding-inline: 6px; }
+.btn.wide { width: 100%; }
+
+/* ---------- recap ---------- */
+.recap { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.recap-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--muted); }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; background: var(--line-soft); color: var(--ink); }
+.tag.ai { background: var(--accent-soft); color: var(--accent); }
+.tag.busy { background: var(--missed-soft); color: var(--ink); }
+.recap-headline { font-family: var(--display); font-weight: 700; font-size: 38px; line-height: 1.02; letter-spacing: 0.005em; text-wrap: balance; }
+.thennow { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; border-block: 1px solid var(--line-soft); padding-block: 10px; }
+.tn { display: flex; flex-direction: column; min-width: 0; }
+.tn-score { font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.tn-sub { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tn-arrow { font-size: 24px; color: var(--muted); }
+.recap-story { font-size: 17px; max-width: 62ch; }
+.sub { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.worm { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.worm figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 13px; color: var(--muted); }
+.worm-key { display: inline-flex; align-items: center; gap: 6px; }
+.key-missed { width: 14px; height: 10px; background: var(--missed-soft); border: 1px solid var(--missed); display: inline-block; }
+.worm-box { min-width: 0; }
+#worm { display: block; width: 100%; height: auto; }
+#worm text { font-family: var(--body); font-size: 11px; fill: var(--muted); }
+#worm .grid { stroke: var(--line-soft); stroke-width: 1; fill: none; }
+#worm .mid { stroke: var(--line); stroke-dasharray: 3 4; stroke-width: 1; fill: none; }
+#worm .split { stroke: var(--line); stroke-width: 1; fill: none; }
+#worm .missed { fill: var(--missed-soft); stroke: none; }
+#worm .missed-edge { stroke: var(--missed); stroke-width: 1; fill: none; }
+#worm .line { stroke: var(--ink); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+#worm .area { fill: var(--ink); opacity: 0.06; stroke: none; }
+#worm .end { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+#worm .end-label { font-family: var(--display); font-size: 16px; font-weight: 700; fill: var(--ink); }
+#worm .pin { stroke: var(--surface); stroke-width: 1.5; }
+#worm .pin.good { fill: var(--good); }
+#worm .pin.bad { fill: var(--bad); }
+#worm .pin-n { font-family: var(--display); font-size: 12px; font-weight: 700; fill: var(--surface); }
+
+.moments { display: flex; flex-direction: column; gap: 0; }
+.moments li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 2px 10px; padding-block: 10px; border-top: 1px solid var(--line-soft); align-items: start; }
+.moments li:first-child { border-top: 0; padding-top: 2px; }
+.m-n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--surface); margin-top: 2px; }
+.m-n.good { background: var(--good); }
+.m-n.bad { background: var(--bad); }
+.m-body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-title { font-weight: 700; }
+.m-line { color: var(--ink); }
+.m-over { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.m-swing { font-family: var(--display); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; padding: 1px 8px; border-radius: 3px; white-space: nowrap; }
+.m-swing.good { background: var(--good-soft); color: var(--good); }
+.m-swing.bad { background: var(--bad-soft); color: var(--bad); }
+.m-swing small { font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+.moments-empty { color: var(--muted); }
+.watch { border-top: 1px solid var(--line-soft); padding-top: 12px; display: flex; flex-direction: column; gap: 2px; }
+.watch p { font-size: 17px; font-weight: 600; max-width: 62ch; }
+.recap-note { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.recap-note:empty { display: none; }
+.recap-note button { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- ask ---------- */
+.ask { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ask h2, .panel h2 { font-family: var(--display); font-weight: 700; font-size: 24px; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.1; }
+.ask-form { display: flex; gap: 8px; }
+.ask-form input { flex: 1 1 auto; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 9px 12px; }
+.thread { display: flex; flex-direction: column; gap: 10px; }
+.qa { border-left: 2px solid var(--line); padding-left: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.qa-q { font-weight: 700; }
+.qa-a { white-space: pre-wrap; overflow-wrap: anywhere; }
+.qa-meta { font-size: 13px; color: var(--muted); }
+.qa-meta.warn { color: var(--bad); }
+
+/* ---------- rail ---------- */
+.panel { border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.panel p { color: var(--muted); font-size: 15px; }
+.panel.notes p { color: var(--ink); }
+.panel h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.ctl-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ctl-row > * { flex: 1 1 120px; min-width: 0; }
+select { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 8px 10px; }
+.ctl-label { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.ctl-label output { text-transform: none; letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.ai-line { border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.panel .ai-line span:last-child { color: var(--ink); }
+.hint { font-size: 14px; }
+
+.foot { border-top: 1px solid var(--line); padding-top: 12px; }
+.foot p { font-size: 13px; color: var(--muted); max-width: 80ch; }
+
+@media (max-width: 880px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .app { max-width: none; }
+}
+@media (max-width: 520px) {
+  .brand h1 { font-size: 38px; }
+  .b-score { font-size: 56px; }
+  .board-side { text-align: left; margin-left: 0; }
+  .board-sim { margin-left: 0; }
+  .recap-headline { font-size: 32px; }
+  .recap { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live.on .live-dot { animation: none; }
+  .wpbar-fill { transition: none; }
+}
+</style>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>MatchSync</h1>
+      <p>Kya hua? You looked away from the match. Here is what happened, and whether to worry.</p>
+    </div>
+    <div class="prefs">
+      <div class="seg">
+        <span class="seg-label" id="side-label">I support</span>
+        <div class="seg-buttons" id="side-seg" role="group" aria-labelledby="side-label">
+          <button type="button" id="side-KON" data-side="KON">Kings</button>
+          <button type="button" id="side-SAH" data-side="SAH">Strikers</button>
+          <button type="button" id="side-neutral" data-side="neutral">Neutral</button>
+        </div>
+      </div>
+      <div class="seg">
+        <span class="seg-label" id="voice-label">Talk to me in</span>
+        <div class="seg-buttons" id="voice-seg" role="group" aria-labelledby="voice-label">
+          <button type="button" id="voice-hinglish" data-voice="hinglish">Hinglish</button>
+          <button type="button" id="voice-simple" data-voice="simple">Simple English</button>
+          <button type="button" id="voice-analyst" data-voice="analyst">Analyst</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="cols">
+    <main class="app">
+      <section class="board" aria-label="Live score">
+        <div class="board-status">
+          <span class="live" id="live-tag"><span class="live-dot"></span><span id="status-text">Live</span></span>
+          <span id="innings-text">2nd innings</span>
+          <span class="board-sim">Simulated match, fictional teams</span>
+        </div>
+        <div class="board-main">
+          <div class="board-score">
+            <span class="b-team" id="bat-team">Kings</span>
+            <span class="b-score" id="bat-score">0/0</span>
+            <span class="b-overs" id="bat-overs">0.0 ov</span>
+          </div>
+          <div class="board-side">
+            <span id="other-line"></span>
+            <span id="equation"></span>
+          </div>
+        </div>
+        <dl class="board-facts">
+          <div><dt>Required rate</dt><dd id="rrr">0</dd></div>
+          <div><dt>Current rate</dt><dd id="crr">0</dd></div>
+          <div class="wide"><dt>At the crease</dt><dd id="crease"></dd></div>
+        </dl>
+        <div class="board-balls">
+          <span class="balls-label">Last 12 balls</span>
+          <ol id="recent" class="balls"></ol>
+        </div>
+        <div class="wpbar" aria-label="Win chance estimate">
+          <div class="wpbar-labels"><span id="wp-left"></span><span class="wpbar-title">Win chance, model estimate</span><span id="wp-right"></span></div>
+          <div class="wpbar-track"><div class="wpbar-fill" id="wp-fill"></div></div>
+        </div>
+      </section>
+
+      <section class="away" id="away" aria-label="Catch up">
+        <p class="away-line" id="away-line"></p>
+        <div class="chips" id="window-chips" role="group" aria-label="Catch me up on">
+          <button type="button" id="win-away" data-win="away">Since I looked away</button>
+          <button type="button" id="win-2" data-win="2">Last 2 overs</button>
+          <button type="button" id="win-5" data-win="5">Last 5 overs</button>
+          <button type="button" id="win-inn" data-win="inn">This innings</button>
+          <button type="button" id="win-match" data-win="match">Whole match</button>
+        </div>
+        <div class="away-actions">
+          <button type="button" class="btn primary" id="catchup">Catch me up</button>
+          <button type="button" class="btn quiet" id="caught">I am caught up</button>
+          <button type="button" class="btn quiet" id="lookaway-inline">Demo: look away for 3 overs</button>
+        </div>
+      </section>
+
+      <article class="recap" id="recap" aria-live="polite">
+        <div class="recap-meta">
+          <span class="tag" id="recap-source">Instant recap</span>
+          <span class="recap-window" id="recap-window"></span>
+        </div>
+        <h2 class="recap-headline" id="recap-headline"></h2>
+        <div class="thennow">
+          <div class="tn">
+            <span class="tn-label" id="tn-then-label">When you left</span>
+            <span class="tn-score" id="tn-then-score"></span>
+            <span class="tn-sub" id="tn-then-sub"></span>
+          </div>
+          <div class="tn-arrow" aria-hidden="true">&rarr;</div>
+          <div class="tn">
+            <span class="tn-label">Now</span>
+            <span class="tn-score" id="tn-now-score"></span>
+            <span class="tn-sub" id="tn-now-sub"></span>
+          </div>
+        </div>
+        <p class="recap-story" id="recap-story"></p>
+
+        <figure class="worm">
+          <figcaption><span id="worm-title">Win chance, ball by ball</span><span class="worm-key"><i class="key-missed"></i>what you missed</span></figcaption>
+          <div class="worm-box"><svg id="worm" viewBox="0 0 640 196" role="img" aria-label="Win chance through the match"></svg></div>
+        </figure>
+
+        <h3 class="sub">What mattered</h3>
+        <ol class="moments" id="recap-moments"></ol>
+        <p class="moments-empty" id="moments-empty" hidden>Nothing big. No wickets in a bunch, no runaway overs.</p>
+
+        <div class="watch">
+          <h3 class="sub">Watch next</h3>
+          <p id="recap-watch"></p>
+        </div>
+        <p class="recap-note" id="recap-note"></p>
+      </article>
+
+      <section class="ask" aria-label="Ask about this match">
+        <h2>Ask about this match</h2>
+        <div class="chips" id="ask-chips"></div>
+        <form id="ask-form" class="ask-form">
+          <label class="sr" for="ask-input">Your question</label>
+          <input id="ask-input" type="text" maxlength="200" autocomplete="off" placeholder="Why did the win chance drop?">
+          <button type="submit" class="btn primary" id="ask-send">Ask</button>
+        </form>
+        <div class="thread" id="ask-thread"></div>
+      </section>
+    </main>
+
+    <aside class="rail">
+      <section class="panel">
+        <h2>Demo controls</h2>
+        <p>This is a replay of a simulated match, sped up. Act like a fan who keeps getting pulled away.</p>
+        <div class="ctl-row">
+          <button type="button" class="btn" id="play">Pause</button>
+          <label class="sr" for="speed">Replay speed</label>
+          <select id="speed">
+            <option value="10000">10 seconds a ball</option>
+            <option value="3000">3 seconds a ball</option>
+            <option value="700">Fast forward</option>
+          </select>
+        </div>
+        <button type="button" class="btn wide" id="lookaway">Look away for 3 overs</button>
+        <label class="ctl-label" for="scrub">Jump to any point <output id="scrub-out" for="scrub"></output></label>
+        <input type="range" id="scrub" min="0" max="100" step="1" value="0">
+        <div class="ctl-row">
+          <button type="button" class="btn" id="jump-start">Back to over 14</button>
+          <button type="button" class="btn" id="jump-last">Go to the last over</button>
+        </div>
+        <p class="ai-line"><span class="ai-key">AI narrator</span> <span id="ai-status">Checking</span></p>
+        <p class="hint">Switching tabs works too. Leave this page for a while and it will have a catch up waiting.</p>
+      </section>
+
+      <section class="panel notes">
+        <h2>Why this exists</h2>
+        <p>Nobody watches all 40 overs. Fans follow a match in snatches, between work, a cab ride and dinner. When they look back, the scorecard gives them the score but not the story.</p>
+        <p>A fan coming back asks three things. What did I miss? Is it good or bad for my team? What do I watch now? This answers those three, in the fan's own voice, in about 20 seconds.</p>
+        <h3>Why it can be trusted</h3>
+        <p>A facts engine reads the ball by ball feed and ranks moments by how far they moved the win chance. The AI only picks the words. Every number it writes is checked against the fact sheet, and a line that fails is replaced by the engine's own line.</p>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <p>Prototype by Niraj Koli. The match, teams and players are fictional. Win chance is a simple model estimate for storytelling, not odds.</p>
+  </footer>
+</div>
+<script>
+// Generated by scripts/make_match.mjs. Do not edit by hand.
+(function (root, factory) {
+  var data = factory();
+  if (typeof module === 'object' && module.exports) module.exports = data;
+  else root.MSMatch = data;
+})(typeof self !== 'undefined' ? self : this, function () {
+  return {"id":"sim-sah-kon-01","title":"Sahyadri Strikers v Konkan Kings","venue":"Riverside Stadium (fictional)","format":{"name":"T20","overs":20,"maxOversPerBowler":4},"note":"Simulated match. Teams and players are fictional.","teams":{"SAH":{"code":"SAH","name":"Sahyadri Strikers","short":"Strikers","players":[{"id":"Deshmukh","name":"Aarav Deshmukh"},{"id":"Kulkarni","name":"Tanmay Kulkarni"},{"id":"Clarke","name":"Reuben Clarke"},{"id":"Bhosale","name":"Ishaan Bhosale"},{"id":"Rathod","name":"Dev Rathod"},{"id":"Shaikh","name":"Kabir Shaikh"},{"id":"Venter","name":"Marcus Venter"},{"id":"Jadhav","name":"Omkar Jadhav"},{"id":"Gaikwad","name":"Yash Gaikwad"},{"id":"Hartley","name":"Liam Hartley"},{"id":"Pathan","name":"Sameer Pathan"}]},"KON":{"code":"KON","name":"Konkan Kings","short":"Kings","players":[{"id":"Naik","name":"Rohan Naik"},{"id":"Sawant","name":"Vihaan Sawant"},{"id":"Morrison","name":"Jake Morrison"},{"id":"Parab","name":"Arjun Parab"},{"id":"Rane","name":"Nikhil Rane"},{"id":"Fernandes","name":"Daniel Fernandes"},{"id":"Gawde","name":"Siddharth Gawde"},{"id":"Kamat","name":"Tejas Kamat"},{"id":"Salgaonkar","name":"Pratik Salgaonkar"},{"id":"Jansen","name":"Kyle Jansen"},{"id":"Pednekar","name":"Aditya Pednekar"}]}},"innings":[{"no":1,"batting":"SAH","bowling":"KON"},{"no":2,"batting":"KON","bowling":"SAH"}],"balls":[{"inn":1,"over":0,"n":1,"legal":true,"striker":"Deshmukh","nonStriker":"Kulkarni","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Deshmukh, straight to the fielder, no run"},{"inn":1,"over":0,"n":2,"legal":true,"striker":"Deshmukh","nonStriker":"Kulkarni","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Deshmukh, dabbed to third man, one run"},{"inn":1,"over":0,"n":3,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, straight to the fielder, no run"},{"inn":1,"over":0,"n":4,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Jansen","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, swept fine, FOUR"},{"inn":1,"over":0,"n":5,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, slower ball, no run"},{"inn":1,"over":0,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, dabbed to third man, one run"},{"inn":1,"over":1,"n":1,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Pednekar","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, driven through cover, FOUR"},{"inn":1,"over":1,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, straight to the fielder, no run"},{"inn":1,"over":1,"n":3,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, dabbed to third man, one run"},{"inn":1,"over":1,"n":4,"legal":true,"striker":"Deshmukh","nonStriker":"Kulkarni","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Deshmukh, worked off the pads for a single"},{"inn":1,"over":1,"n":5,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, beaten outside off"},{"inn":1,"over":1,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Deshmukh","bowler":"Pednekar","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, straight back over the bowler, SIX"},{"inn":1,"over":2,"n":1,"legal":true,"striker":"Deshmukh","nonStriker":"Kulkarni","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Deshmukh, beaten outside off"},{"inn":1,"over":2,"n":2,"legal":true,"striker":"Deshmukh","nonStriker":"Kulkarni","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"caught","player":"Deshmukh","fielder":"Parab"},"dropped":null,"text":"Jansen to Deshmukh, OUT, edged to slip"},{"inn":1,"over":2,"n":3,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Clarke, straight to the fielder, no run"},{"inn":1,"over":2,"n":4,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Clarke, dabbed to third man, one run"},{"inn":1,"over":2,"n":5,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Jansen","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, driven through cover, FOUR"},{"inn":1,"over":2,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, good length, defended"},{"inn":1,"over":3,"n":1,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Clarke, worked off the pads for a single"},{"inn":1,"over":3,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Pednekar","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, pulled hard, FOUR"},{"inn":1,"over":3,"n":3,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, beaten outside off"},{"inn":1,"over":3,"n":4,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Pednekar","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, swept fine, FOUR"},{"inn":1,"over":3,"n":5,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Kulkarni, pushed to long-on for one"},{"inn":1,"over":3,"n":6,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Clarke, straight to the fielder, no run"},{"inn":1,"over":4,"n":1,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Gawde","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Kulkarni, picked up over midwicket, SIX"},{"inn":1,"over":4,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Kulkarni, worked off the pads for a single"},{"inn":1,"over":4,"n":3,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Gawde","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Clarke, slower ball, no run"},{"inn":1,"over":4,"n":4,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Gawde","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Clarke, cut past point, FOUR"},{"inn":1,"over":4,"n":5,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Clarke, driven to the sweeper, one"},{"inn":1,"over":4,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Kulkarni, worked off the pads for a single"},{"inn":1,"over":5,"n":1,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, dabbed to third man, one run"},{"inn":1,"over":5,"n":2,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Clarke, beaten outside off"},{"inn":1,"over":5,"n":3,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Jansen","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Clarke, driven through cover, FOUR"},{"inn":1,"over":5,"n":4,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Clarke, straight to the fielder, no run"},{"inn":1,"over":5,"n":5,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Clarke, driven to the sweeper, one"},{"inn":1,"over":5,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Jansen","bat":2,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Kulkarni, placed into the gap, they come back for two"},{"inn":1,"over":6,"n":1,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Clarke, pushed to long-on for one"},{"inn":1,"over":6,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, straight to the fielder, no run"},{"inn":1,"over":6,"n":3,"legal":true,"striker":"Kulkarni","nonStriker":"Clarke","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, worked off the pads for a single"},{"inn":1,"over":6,"n":4,"legal":true,"striker":"Clarke","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"stumped","player":"Clarke","fielder":"Fernandes"},"dropped":null,"text":"Salgaonkar to Clarke, OUT, beaten in flight"},{"inn":1,"over":6,"n":5,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, straight to the fielder, no run"},{"inn":1,"over":6,"n":6,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, dabbed to third man, one run"},{"inn":1,"over":7,"n":1,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, driven to the sweeper, one"},{"inn":1,"over":7,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, pushed to long-on for one"},{"inn":1,"over":7,"n":3,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Kamat","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, slower ball, no run"},{"inn":1,"over":7,"n":4,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, driven to the sweeper, one"},{"inn":1,"over":7,"n":5,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, pulled hard, FOUR"},{"inn":1,"over":7,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, pushed to long-on for one"},{"inn":1,"over":8,"n":1,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, good length, defended"},{"inn":1,"over":8,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, driven to the sweeper, one"},{"inn":1,"over":8,"n":3,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, worked off the pads for a single"},{"inn":1,"over":8,"n":4,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, straight to the fielder, no run"},{"inn":1,"over":8,"n":5,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, worked off the pads for a single"},{"inn":1,"over":8,"n":6,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, dabbed to third man, one run"},{"inn":1,"over":9,"n":1,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, dabbed to third man, one run"},{"inn":1,"over":9,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, launched over long-on, SIX"},{"inn":1,"over":9,"n":3,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, straight to the fielder, no run"},{"inn":1,"over":9,"n":4,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, pushed to long-on for one"},{"inn":1,"over":9,"n":5,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, worked off the pads for a single"},{"inn":1,"over":9,"n":6,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Kamat","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Kulkarni, straight to the fielder, no run"},{"inn":1,"over":10,"n":1,"legal":true,"striker":"Bhosale","nonStriker":"Kulkarni","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, driven to the sweeper, one"},{"inn":1,"over":10,"n":2,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Kulkarni, beaten outside off"},{"inn":1,"over":10,"n":3,"legal":true,"striker":"Kulkarni","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"lbw","player":"Kulkarni","fielder":null},"dropped":null,"text":"Salgaonkar to Kulkarni, OUT, trapped on the back foot"},{"inn":1,"over":10,"n":4,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Rathod, worked off the pads for a single"},{"inn":1,"over":10,"n":5,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, beaten outside off"},{"inn":1,"over":10,"n":6,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, pushed to long-on for one"},{"inn":1,"over":11,"n":1,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Gawde","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Bhosale, swept fine, FOUR"},{"inn":1,"over":11,"n":2,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Bhosale, worked off the pads for a single"},{"inn":1,"over":11,"n":3,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Rathod, driven to the sweeper, one"},{"inn":1,"over":11,"n":4,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Gawde","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Bhosale, launched over long-on, SIX"},{"inn":1,"over":11,"n":5,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Gawde","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Bhosale, straight to the fielder, no run"},{"inn":1,"over":11,"n":6,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Bhosale, worked off the pads for a single"},{"inn":1,"over":12,"n":1,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, driven to the sweeper, one"},{"inn":1,"over":12,"n":2,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, pushed to long-on for one"},{"inn":1,"over":12,"n":3,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Kamat","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, good length, defended"},{"inn":1,"over":12,"n":4,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Kamat","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, swept fine, FOUR"},{"inn":1,"over":12,"n":5,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Bhosale, dabbed to third man, one run"},{"inn":1,"over":12,"n":6,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, pushed to long-on for one"},{"inn":1,"over":13,"n":1,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Rathod, worked off the pads for a single"},{"inn":1,"over":13,"n":2,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, beaten outside off"},{"inn":1,"over":13,"n":3,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Salgaonkar","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, straight back over the bowler, SIX"},{"inn":1,"over":13,"n":4,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Bhosale, driven to the sweeper, one"},{"inn":1,"over":13,"n":5,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Rathod, straight to the fielder, no run"},{"inn":1,"over":13,"n":6,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Salgaonkar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Salgaonkar to Rathod, worked off the pads for a single"},{"inn":1,"over":14,"n":1,"legal":true,"striker":"Rathod","nonStriker":"Bhosale","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Rathod, driven to the sweeper, one"},{"inn":1,"over":14,"n":2,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Pednekar","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Bhosale, swept fine, FOUR"},{"inn":1,"over":14,"n":3,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Bhosale, beaten outside off"},{"inn":1,"over":14,"n":4,"legal":true,"striker":"Bhosale","nonStriker":"Rathod","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"caught","player":"Bhosale","fielder":"Rane"},"dropped":null,"text":"Pednekar to Bhosale, OUT, holed out to deep midwicket"},{"inn":1,"over":14,"n":5,"legal":true,"striker":"Shaikh","nonStriker":"Rathod","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Shaikh, worked off the pads for a single"},{"inn":1,"over":14,"n":6,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Rathod, dabbed to third man, one run"},{"inn":1,"over":15,"n":1,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Kamat","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, launched over long-on, SIX"},{"inn":1,"over":15,"n":2,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, driven to the sweeper, one"},{"inn":1,"over":15,"n":3,"legal":true,"striker":"Shaikh","nonStriker":"Rathod","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Shaikh, worked off the pads for a single"},{"inn":1,"over":15,"n":4,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Kamat","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, beaten outside off"},{"inn":1,"over":15,"n":5,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Kamat","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, driven through cover, FOUR"},{"inn":1,"over":15,"n":6,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Kamat","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Kamat to Rathod, pushed to long-on for one"},{"inn":1,"over":16,"n":1,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Rathod, dabbed to third man, one run"},{"inn":1,"over":16,"n":2,"legal":true,"striker":"Shaikh","nonStriker":"Rathod","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Shaikh, straight to the fielder, no run"},{"inn":1,"over":16,"n":3,"legal":true,"striker":"Shaikh","nonStriker":"Rathod","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Shaikh, dabbed to third man, one run"},{"inn":1,"over":16,"n":4,"legal":true,"striker":"Rathod","nonStriker":"Shaikh","bowler":"Jansen","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"bowled","player":"Rathod","fielder":null},"dropped":null,"text":"Jansen to Rathod, OUT, yorker through the gate"},{"inn":1,"over":16,"n":5,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Jansen","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Venter, driven through cover, FOUR"},{"inn":1,"over":16,"n":6,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Jansen","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jansen to Venter, dabbed to third man, one run"},{"inn":1,"over":17,"n":1,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Gawde","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Venter, swept fine, FOUR"},{"inn":1,"over":17,"n":2,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Gawde","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Venter, straight back over the bowler, SIX"},{"inn":1,"over":17,"n":3,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Venter, driven to the sweeper, one"},{"inn":1,"over":17,"n":4,"legal":true,"striker":"Shaikh","nonStriker":"Venter","bowler":"Gawde","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Shaikh, straight to the fielder, no run"},{"inn":1,"over":17,"n":5,"legal":false,"striker":"Shaikh","nonStriker":"Venter","bowler":"Gawde","bat":0,"extras":1,"extraType":"wd","wicket":null,"dropped":null,"text":"Gawde to Shaikh, wide down the leg side"},{"inn":1,"over":17,"n":5,"legal":true,"striker":"Shaikh","nonStriker":"Venter","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Shaikh, dabbed to third man, one run"},{"inn":1,"over":17,"n":6,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Gawde","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Venter, swept fine, FOUR"},{"inn":1,"over":18,"n":1,"legal":true,"striker":"Shaikh","nonStriker":"Venter","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Shaikh, worked off the pads for a single"},{"inn":1,"over":18,"n":2,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Pednekar","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Venter, launched over long-on, SIX"},{"inn":1,"over":18,"n":3,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Venter, straight to the fielder, no run"},{"inn":1,"over":18,"n":4,"legal":true,"striker":"Venter","nonStriker":"Shaikh","bowler":"Pednekar","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Venter, dabbed to third man, one run"},{"inn":1,"over":18,"n":5,"legal":true,"striker":"Shaikh","nonStriker":"Venter","bowler":"Pednekar","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pednekar to Shaikh, cut past point, FOUR"},{"inn":1,"over":18,"n":6,"legal":true,"striker":"Shaikh","nonStriker":"Venter","bowler":"Pednekar","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"caught","player":"Shaikh","fielder":"Naik"},"dropped":null,"text":"Pednekar to Shaikh, OUT, skied to long-off"},{"inn":1,"over":19,"n":1,"legal":true,"striker":"Venter","nonStriker":"Jadhav","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Venter, dabbed to third man, one run"},{"inn":1,"over":19,"n":2,"legal":true,"striker":"Jadhav","nonStriker":"Venter","bowler":"Gawde","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Jadhav, driven through cover, FOUR"},{"inn":1,"over":19,"n":3,"legal":true,"striker":"Jadhav","nonStriker":"Venter","bowler":"Gawde","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Jadhav, good length, defended"},{"inn":1,"over":19,"n":4,"legal":true,"striker":"Jadhav","nonStriker":"Venter","bowler":"Gawde","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Jadhav, picked up over midwicket, SIX"},{"inn":1,"over":19,"n":5,"legal":true,"striker":"Jadhav","nonStriker":"Venter","bowler":"Gawde","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Jadhav, driven to the sweeper, one"},{"inn":1,"over":19,"n":6,"legal":true,"striker":"Venter","nonStriker":"Jadhav","bowler":"Gawde","bat":2,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gawde to Venter, placed into the gap, they come back for two"},{"inn":2,"over":0,"n":1,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, slower ball, no run"},{"inn":2,"over":0,"n":2,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, pulled hard, FOUR"},{"inn":2,"over":0,"n":3,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, slower ball, no run"},{"inn":2,"over":0,"n":4,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, dabbed to third man, one run"},{"inn":2,"over":0,"n":5,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Hartley","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Sawant, driven through cover, FOUR"},{"inn":2,"over":0,"n":6,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Sawant, beaten outside off"},{"inn":2,"over":1,"n":1,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Naik, dabbed to third man, one run"},{"inn":2,"over":1,"n":2,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, pulled hard, FOUR"},{"inn":2,"over":1,"n":3,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, picked up over midwicket, SIX"},{"inn":2,"over":1,"n":4,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, good length, defended"},{"inn":2,"over":1,"n":5,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, dabbed to third man, one run"},{"inn":2,"over":1,"n":6,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Pathan","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Naik, beaten outside off"},{"inn":2,"over":2,"n":1,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Hartley","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Sawant, driven through cover, FOUR"},{"inn":2,"over":2,"n":2,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Sawant, straight to the fielder, no run"},{"inn":2,"over":2,"n":3,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Hartley","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Sawant, worked off the pads for a single"},{"inn":2,"over":2,"n":4,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, good length, defended"},{"inn":2,"over":2,"n":5,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, cut past point, FOUR"},{"inn":2,"over":2,"n":6,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Hartley","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Naik, driven to the sweeper, one"},{"inn":2,"over":3,"n":1,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Naik, driven to the sweeper, one"},{"inn":2,"over":3,"n":2,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, launched over long-on, SIX"},{"inn":2,"over":3,"n":3,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, beaten outside off"},{"inn":2,"over":3,"n":4,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, cut past point, FOUR"},{"inn":2,"over":3,"n":5,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, straight to the fielder, no run"},{"inn":2,"over":3,"n":6,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, dabbed to third man, one run"},{"inn":2,"over":4,"n":1,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, straight to the fielder, no run"},{"inn":2,"over":4,"n":2,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, pushed to long-on for one"},{"inn":2,"over":4,"n":3,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Pathan","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Naik, pulled hard, FOUR"},{"inn":2,"over":4,"n":4,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Naik, worked off the pads for a single"},{"inn":2,"over":4,"n":5,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, good length, defended"},{"inn":2,"over":4,"n":6,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Sawant, driven to the sweeper, one"},{"inn":2,"over":5,"n":1,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, driven through cover, FOUR"},{"inn":2,"over":5,"n":2,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, good length, defended"},{"inn":2,"over":5,"n":3,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Sawant, driven to the sweeper, one"},{"inn":2,"over":5,"n":4,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Venter","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Naik, straight to the fielder, no run"},{"inn":2,"over":5,"n":5,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Venter","bat":2,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Naik, chipped over the infield, two runs"},{"inn":2,"over":5,"n":6,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Naik, driven to the sweeper, one"},{"inn":2,"over":6,"n":1,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Naik, driven to the sweeper, one"},{"inn":2,"over":6,"n":2,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Sawant, slower ball, no run"},{"inn":2,"over":6,"n":3,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Sawant, pushed to long-on for one"},{"inn":2,"over":6,"n":4,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Naik, pushed to long-on for one"},{"inn":2,"over":6,"n":5,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Sawant, straight to the fielder, no run"},{"inn":2,"over":6,"n":6,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Sawant, worked off the pads for a single"},{"inn":2,"over":7,"n":1,"legal":true,"striker":"Sawant","nonStriker":"Naik","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Sawant, worked off the pads for a single"},{"inn":2,"over":7,"n":2,"legal":true,"striker":"Naik","nonStriker":"Sawant","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"caught","player":"Naik","fielder":"Rathod"},"dropped":null,"text":"Jadhav to Naik, OUT, picked out long-on"},{"inn":2,"over":7,"n":3,"legal":true,"striker":"Morrison","nonStriker":"Sawant","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, straight to the fielder, no run"},{"inn":2,"over":7,"n":4,"legal":true,"striker":"Morrison","nonStriker":"Sawant","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, good length, defended"},{"inn":2,"over":7,"n":5,"legal":true,"striker":"Morrison","nonStriker":"Sawant","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, pushed to long-on for one"},{"inn":2,"over":7,"n":6,"legal":true,"striker":"Sawant","nonStriker":"Morrison","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Sawant, beaten outside off"},{"inn":2,"over":8,"n":1,"legal":true,"striker":"Morrison","nonStriker":"Sawant","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Morrison, beaten outside off"},{"inn":2,"over":8,"n":2,"legal":true,"striker":"Morrison","nonStriker":"Sawant","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Morrison, worked off the pads for a single"},{"inn":2,"over":8,"n":3,"legal":true,"striker":"Sawant","nonStriker":"Morrison","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"bowled","player":"Sawant","fielder":null},"dropped":null,"text":"Gaikwad to Sawant, OUT, googly through the gate"},{"inn":2,"over":8,"n":4,"legal":true,"striker":"Parab","nonStriker":"Morrison","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Parab, straight to the fielder, no run"},{"inn":2,"over":8,"n":5,"legal":true,"striker":"Parab","nonStriker":"Morrison","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Parab, worked off the pads for a single"},{"inn":2,"over":8,"n":6,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Morrison, beaten outside off"},{"inn":2,"over":9,"n":1,"legal":true,"striker":"Parab","nonStriker":"Morrison","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Parab, dabbed to third man, one run"},{"inn":2,"over":9,"n":2,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, beaten outside off"},{"inn":2,"over":9,"n":3,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, slower ball, no run"},{"inn":2,"over":9,"n":4,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, worked off the pads for a single"},{"inn":2,"over":9,"n":5,"legal":true,"striker":"Parab","nonStriker":"Morrison","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Parab, worked off the pads for a single"},{"inn":2,"over":9,"n":6,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Morrison, good length, defended"},{"inn":2,"over":10,"n":1,"legal":true,"striker":"Parab","nonStriker":"Morrison","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Parab, dabbed to third man, one run"},{"inn":2,"over":10,"n":2,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Morrison, beaten outside off"},{"inn":2,"over":10,"n":3,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Gaikwad","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Morrison, swept fine, FOUR"},{"inn":2,"over":10,"n":4,"legal":true,"striker":"Morrison","nonStriker":"Parab","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"lbw","player":"Morrison","fielder":null},"dropped":null,"text":"Gaikwad to Morrison, OUT, missed a sweep"},{"inn":2,"over":10,"n":5,"legal":true,"striker":"Rane","nonStriker":"Parab","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Rane, straight to the fielder, no run"},{"inn":2,"over":10,"n":6,"legal":true,"striker":"Rane","nonStriker":"Parab","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Rane, pushed to long-on for one"},{"inn":2,"over":11,"n":1,"legal":true,"striker":"Rane","nonStriker":"Parab","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Rane, good length, defended"},{"inn":2,"over":11,"n":2,"legal":true,"striker":"Rane","nonStriker":"Parab","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Rane, pushed to long-on for one"},{"inn":2,"over":11,"n":3,"legal":true,"striker":"Parab","nonStriker":"Rane","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Parab, slower ball, no run"},{"inn":2,"over":11,"n":4,"legal":true,"striker":"Parab","nonStriker":"Rane","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"stumped","player":"Parab","fielder":"Kulkarni"},"dropped":null,"text":"Jadhav to Parab, OUT, dragged out of the crease"},{"inn":2,"over":11,"n":5,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Fernandes, pushed to long-on for one"},{"inn":2,"over":11,"n":6,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Rane, slower ball, no run"},{"inn":2,"over":12,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, pushed to long-on for one"},{"inn":2,"over":12,"n":2,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Venter","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Rane, swept fine, FOUR"},{"inn":2,"over":12,"n":3,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Rane, driven to the sweeper, one"},{"inn":2,"over":12,"n":4,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, straight to the fielder, no run"},{"inn":2,"over":12,"n":5,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, straight back over the bowler, SIX"},{"inn":2,"over":12,"n":6,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, pushed to long-on for one"},{"inn":2,"over":13,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Fernandes, pushed to long-on for one"},{"inn":2,"over":13,"n":2,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Gaikwad","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Rane, straight back over the bowler, SIX"},{"inn":2,"over":13,"n":3,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Rane, pushed to long-on for one"},{"inn":2,"over":13,"n":4,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Gaikwad","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Fernandes, pushed to long-on for one"},{"inn":2,"over":13,"n":5,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Gaikwad","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Rane, pulled hard, FOUR"},{"inn":2,"over":13,"n":6,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Gaikwad","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Gaikwad to Rane, good length, defended"},{"inn":2,"over":14,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Fernandes, driven to the sweeper, one"},{"inn":2,"over":14,"n":2,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Pathan","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Rane, swept fine, FOUR"},{"inn":2,"over":14,"n":3,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Pathan","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Rane, straight to the fielder, no run"},{"inn":2,"over":14,"n":4,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Rane, dabbed to third man, one run"},{"inn":2,"over":14,"n":5,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Pathan","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Fernandes, straight back over the bowler, SIX"},{"inn":2,"over":14,"n":6,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Fernandes, dabbed to third man, one run"},{"inn":2,"over":15,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Fernandes, worked off the pads for a single"},{"inn":2,"over":15,"n":2,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Jadhav","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Rane, slower ball, no run"},{"inn":2,"over":15,"n":3,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Jadhav","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Rane, launched over long-on, SIX"},{"inn":2,"over":15,"n":4,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":{"fielder":"Shaikh","position":"deep midwicket"},"text":"Jadhav to Rane, DROPPED by Shaikh at deep midwicket, they take 1"},{"inn":2,"over":15,"n":5,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Jadhav","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Fernandes, pushed to long-on for one"},{"inn":2,"over":15,"n":6,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Jadhav","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Jadhav to Rane, driven through cover, FOUR"},{"inn":2,"over":16,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, swept fine, FOUR"},{"inn":2,"over":16,"n":2,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, launched over long-on, SIX"},{"inn":2,"over":16,"n":3,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Venter","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Fernandes, dabbed to third man, one run"},{"inn":2,"over":16,"n":4,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Venter","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Rane, slower ball, no run"},{"inn":2,"over":16,"n":5,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Venter","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Rane, straight back over the bowler, SIX"},{"inn":2,"over":16,"n":6,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Venter","bat":2,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Venter to Rane, chipped over the infield, two runs"},{"inn":2,"over":17,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Rane","bowler":"Hartley","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Fernandes, driven to the sweeper, one"},{"inn":2,"over":17,"n":2,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Rane, good length, defended"},{"inn":2,"over":17,"n":3,"legal":true,"striker":"Rane","nonStriker":"Fernandes","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"bowled","player":"Rane","fielder":null},"dropped":null,"text":"Hartley to Rane, OUT, yorker hits the base of middle"},{"inn":2,"over":17,"n":4,"legal":true,"striker":"Gawde","nonStriker":"Fernandes","bowler":"Hartley","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Gawde, dabbed to third man, one run"},{"inn":2,"over":17,"n":5,"legal":true,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Fernandes, slower ball, no run"},{"inn":2,"over":17,"n":6,"legal":true,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Hartley","bat":2,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Fernandes, placed into the gap, they come back for two"},{"inn":2,"over":18,"n":1,"legal":true,"striker":"Gawde","nonStriker":"Fernandes","bowler":"Pathan","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Gawde, straight back over the bowler, SIX"},{"inn":2,"over":18,"n":2,"legal":true,"striker":"Gawde","nonStriker":"Fernandes","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Gawde, pushed to long-on for one"},{"inn":2,"over":18,"n":3,"legal":true,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Pathan","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Fernandes, cut past point, FOUR"},{"inn":2,"over":18,"n":4,"legal":true,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Pathan","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Fernandes, beaten outside off"},{"inn":2,"over":18,"n":5,"legal":false,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Pathan","bat":0,"extras":1,"extraType":"wd","wicket":null,"dropped":null,"text":"Pathan to Fernandes, wide down the leg side"},{"inn":2,"over":18,"n":5,"legal":true,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Pathan","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Fernandes, driven to the sweeper, one"},{"inn":2,"over":18,"n":6,"legal":true,"striker":"Gawde","nonStriker":"Fernandes","bowler":"Pathan","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Pathan to Gawde, straight back over the bowler, SIX"},{"inn":2,"over":19,"n":1,"legal":true,"striker":"Fernandes","nonStriker":"Gawde","bowler":"Hartley","bat":1,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Fernandes, worked off the pads for a single"},{"inn":2,"over":19,"n":2,"legal":true,"striker":"Gawde","nonStriker":"Fernandes","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":{"kind":"caught","player":"Gawde","fielder":"Bhosale"},"dropped":null,"text":"Hartley to Gawde, OUT, sliced to deep cover"},{"inn":2,"over":19,"n":3,"legal":true,"striker":"Kamat","nonStriker":"Fernandes","bowler":"Hartley","bat":0,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Kamat, beaten outside off"},{"inn":2,"over":19,"n":4,"legal":true,"striker":"Kamat","nonStriker":"Fernandes","bowler":"Hartley","bat":6,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Kamat, picked up over midwicket, SIX"},{"inn":2,"over":19,"n":5,"legal":true,"striker":"Kamat","nonStriker":"Fernandes","bowler":"Hartley","bat":2,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Kamat, placed into the gap, they come back for two"},{"inn":2,"over":19,"n":6,"legal":true,"striker":"Kamat","nonStriker":"Fernandes","bowler":"Hartley","bat":4,"extras":0,"extraType":null,"wicket":null,"dropped":null,"text":"Hartley to Kamat, driven through cover, FOUR"}]};
+});
+
+</script>
+<script>
+// Generated from prompts.json by scripts/build.mjs. Edit prompts.json, not this file.
+(typeof self !== 'undefined' ? self : this).MSPrompts = {
+  "voices": {
+    "simple": "Plain everyday English for someone new to cricket. Short sentences. If you use a cricket term, explain it in a few words.",
+    "hinglish": "Hinglish in Roman script, the way friends in India talk about cricket on WhatsApp. Casual, warm, a little dramatic. Keep player and team names in English. No Devanagari.",
+    "analyst": "A sharp cricket analyst. Dense and precise, numbers first, no hype."
+  },
+  "recap": [
+    "You write the catch-up inside a live cricket companion app. A fan looked away from a live T20 match and has just come back. FACTS is everything that happened while they were away, already worked out by a stats engine.",
+    "",
+    "VOICE: {voice}",
+    "FAN: {fan}. Say plainly whether this is good or bad news for them. If the fan is neutral, do not take a side.",
+    "",
+    "RULES",
+    "1. Use only what is in FACTS. Never invent a player, an event or a number.",
+    "2. Every digit you write must be copied from FACTS exactly. Do no arithmetic. If you want a number that is not in FACTS, leave it out or use a word like a few.",
+    "3. winPct is an estimate from a simple model. Call it win chance. No betting, odds or fantasy points language.",
+    "4. No emojis. No hashtags.",
+    "5. headline: at most 14 words. The one thing the fan must know.",
+    "6. story: 2 short sentences that connect the moments into cause and effect, ending on where the match stands now.",
+    "7. moments: one line of at most 20 words for every moment in FACTS, same ids, same order. Say why it mattered.",
+    "8. watch: one sentence on what to watch next, built from FACTS.watch. If FACTS.watch is null the match is over, so close it out.",
+    "",
+    "Reply with only this JSON and nothing else:",
+    "{\"headline\":\"...\",\"story\":\"...\",\"moments\":[{\"id\":\"m1\",\"line\":\"...\"}],\"watch\":\"...\"}",
+    "",
+    "FACTS",
+    "{facts}"
+  ],
+  "ask": [
+    "You answer one question from a fan inside a live cricket companion app. MATCH is the full state of the match right now, already worked out by a stats engine.",
+    "",
+    "VOICE: {voice}",
+    "FAN: {fan}.",
+    "",
+    "RULES",
+    "1. Answer from MATCH. At most 60 words. Answer first, no preamble.",
+    "2. Every digit you write must be copied from MATCH exactly. Do no arithmetic.",
+    "3. You may explain cricket rules and terms from general knowledge. Never make up statistics, history or news about players or teams.",
+    "4. If MATCH does not hold the answer, say so in one line and give the nearest fact it does hold.",
+    "5. winPct is an estimate from a simple model. Call it win chance. No betting, odds or fantasy advice.",
+    "6. No emojis. Plain text only.",
+    "",
+    "MATCH",
+    "{context}",
+    "",
+    "QUESTION",
+    "{question}"
+  ]
+};
+
+</script>
+<script>
+// MatchSync facts engine.
+// Turns a ball-by-ball feed into: match state after every ball, a win chance estimate,
+// the moments that mattered inside a time window, and a fact sheet for the narrator.
+// No AI in this file. Everything here is deterministic and unit tested.
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.MSEngine = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var PAR = 178; // score at which the side batting first is a 50/50 bet in this model
+
+  // ---------- win chance model (a simple, explainable heuristic) ----------
+
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+  // Normal CDF, Abramowitz and Stegun approximation.
+  function phi(z) {
+    var t = 1 / (1 + 0.2316419 * Math.abs(z));
+    var d = 0.3989423 * Math.exp((-z * z) / 2);
+    var p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - p : p;
+  }
+
+  // Runs a side can expect from here. Wickets in hand cap how many balls can be
+  // batted at full tilt, and spare wickets let batters score a little faster.
+  function expectedRuns(balls, wkts) {
+    if (balls <= 0 || wkts <= 0) return 0;
+    var usable = Math.min(balls, wkts * 13);
+    var rate = 1.42 + 0.4 * clamp((wkts * 13 - balls) / 60, 0, 1);
+    return usable * rate;
+  }
+
+  function wpChase(need, balls, wkts) {
+    if (need <= 0) return 1;
+    if (balls <= 0 || wkts <= 0) return 0;
+    var sd = 2.1 * Math.sqrt(balls) + 1.5;
+    return clamp(phi((expectedRuns(balls, wkts) - need) / sd), 0.01, 0.99);
+  }
+
+  function projectedScore(runs, balls, wkts) {
+    return Math.round(runs + expectedRuns(balls, wkts));
+  }
+
+  function wpFirst(runs, balls, wkts) {
+    return clamp(phi((runs + expectedRuns(balls, wkts) - PAR) / 22), 0.02, 0.98);
+  }
+
+  // ---------- timeline: match state after every ball ----------
+
+  function overText(legal) { return Math.floor(legal / 6) + '.' + (legal % 6); }
+  function round1(x) { return Math.round(x * 10) / 10; }
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+  function buildTimeline(match) {
+    var maxBalls = match.format.overs * 6;
+    var quota = match.format.maxOversPerBowler * 6;
+    var t1 = match.innings[0].batting;
+    var t2 = match.innings[1].batting;
+    var balls = match.balls;
+    var states = [];
+    var overs = [];
+    var first = null;
+    var breakIndex = null;
+    var cur;
+
+    function short(code) { return match.teams[code].short; }
+
+    function fresh(no) {
+      var inn = match.innings[no - 1];
+      return {
+        inn: no, batting: inn.batting, bowling: inn.bowling, runs: 0, wkts: 0, legal: 0,
+        batters: {}, order: [], bowlers: {}, bowlOrder: [], pship: { runs: 0, balls: 0 },
+        fow: [], overRuns: [], tokens: [], lastOver: null,
+      };
+    }
+    function batter(name) {
+      if (!cur.batters[name]) {
+        cur.batters[name] = { name: name, runs: 0, balls: 0, fours: 0, sixes: 0, out: false, how: null };
+        cur.order.push(name);
+      }
+      return cur.batters[name];
+    }
+    function bowlerOf(name) {
+      if (!cur.bowlers[name]) {
+        cur.bowlers[name] = { name: name, balls: 0, runs: 0, wkts: 0, dots: 0 };
+        cur.bowlOrder.push(name);
+      }
+      return cur.bowlers[name];
+    }
+    function cloneMap(m) {
+      var out = {};
+      Object.keys(m).forEach(function (k) { out[k] = Object.assign({}, m[k]); });
+      return out;
+    }
+
+    function snap(i, ball) {
+      var legal = cur.legal;
+      var ballsLeft = maxBalls - legal;
+      var allOut = cur.wkts >= 10;
+      var target = cur.inn === 2 ? first.runs + 1 : null;
+      var need = cur.inn === 2 ? Math.max(0, target - cur.runs) : null;
+      var phase = 'live';
+      var result = null;
+      var wp2;
+      if (cur.inn === 1) {
+        if (legal >= maxBalls || allOut) {
+          phase = 'break';
+          wp2 = wpChase(cur.runs + 1, maxBalls, 10);
+        } else {
+          wp2 = 1 - wpFirst(cur.runs, ballsLeft, 10 - cur.wkts);
+        }
+      } else if (need <= 0) {
+        phase = 'finished'; wp2 = 1;
+        result = { winner: t2, text: short(t2) + ' won by ' + plural(10 - cur.wkts, 'wicket') };
+      } else if (legal >= maxBalls || allOut) {
+        phase = 'finished';
+        if (need === 1) { wp2 = 0.5; result = { winner: null, text: 'Match tied' }; }
+        else { wp2 = 0; result = { winner: t1, text: short(t1) + ' won by ' + plural(need - 1, 'run') }; }
+      } else {
+        wp2 = wpChase(need, ballsLeft, 10 - cur.wkts);
+      }
+
+      // Who is at the crease, worked out from this ball alone (no peeking at the next one).
+      var crease;
+      if (!ball) {
+        crease = [balls[0].striker, balls[0].nonStriker];
+      } else {
+        var swap = ball.bat % 2 === 1;
+        if (ball.legal && legal % 6 === 0) swap = !swap;
+        crease = (swap ? [ball.nonStriker, ball.striker] : [ball.striker, ball.nonStriker])
+          .filter(function (n) { return !cur.batters[n].out; });
+      }
+
+      return {
+        i: i, inn: cur.inn, batting: cur.batting, bowling: cur.bowling,
+        runs: cur.runs, wkts: cur.wkts, legal: legal, score: cur.runs + '/' + cur.wkts,
+        overText: overText(legal), gl: (cur.inn === 2 ? first.legal : 0) + legal,
+        target: target, need: need, ballsLeft: ballsLeft,
+        crr: legal ? round1((cur.runs / legal) * 6) : 0,
+        rrr: cur.inn === 2 && ballsLeft > 0 && need > 0 ? round1((need / ballsLeft) * 6) : null,
+        projected: cur.inn === 1 ? projectedScore(cur.runs, ballsLeft, 10 - cur.wkts) : null,
+        wp2: wp2, phase: phase, result: result,
+        batters: cloneMap(cur.batters), order: cur.order.slice(), crease: crease,
+        bowlers: cloneMap(cur.bowlers), bowlOrder: cur.bowlOrder.slice(),
+        pship: { runs: cur.pship.runs, balls: cur.pship.balls },
+        fow: cur.fow.slice(), overRuns: cur.overRuns.slice(), recent: cur.tokens.slice(-12),
+        lastOver: cur.lastOver, first: first, quota: quota,
+      };
+    }
+
+    cur = fresh(1);
+    states.push(snap(0, null));
+
+    var overAcc = null;
+    balls.forEach(function (b, j) {
+      if (b.inn !== cur.inn) {
+        first = {
+          team: cur.batting, runs: cur.runs, wkts: cur.wkts, legal: cur.legal,
+          score: cur.runs + '/' + cur.wkts, overs: overText(cur.legal),
+        };
+        cur = fresh(b.inn);
+        overAcc = null;
+      }
+      if (!overAcc || overAcc.over !== b.over || overAcc.inn !== b.inn) {
+        overAcc = { inn: b.inn, over: b.over, a: j, b: j, legal: 0, runs: 0, bowler: b.bowler, tokens: [], complete: false };
+        overs.push(overAcc);
+      }
+      var st = batter(b.striker);
+      batter(b.nonStriker);
+      var bw = bowlerOf(b.bowler);
+      var total = b.bat + b.extras;
+      cur.runs += total;
+      st.runs += b.bat;
+      if (b.extraType !== 'wd') st.balls += 1;
+      if (b.bat === 4) st.fours += 1;
+      if (b.bat === 6) st.sixes += 1;
+      bw.runs += b.bat + (b.extraType === 'wd' || b.extraType === 'nb' ? b.extras : 0);
+      if (b.legal) { bw.balls += 1; cur.legal += 1; cur.pship.balls += 1; if (total === 0) bw.dots += 1; }
+      cur.pship.runs += total;
+      var token = b.wicket ? 'W' : b.extraType ? b.extraType : b.bat === 0 ? '.' : String(b.bat);
+      cur.tokens.push(token);
+      overAcc.tokens.push(token);
+      overAcc.runs += total;
+      overAcc.b = j + 1;
+      if (b.legal) overAcc.legal += 1;
+      if (b.wicket) {
+        cur.wkts += 1;
+        var outB = cur.batters[b.wicket.player];
+        outB.out = true;
+        outB.how = b.wicket.kind;
+        if (b.wicket.kind !== 'run out') bw.wkts += 1;
+        cur.fow.push({ wkt: cur.wkts, runs: cur.runs, over: b.over + '.' + b.n, player: b.wicket.player });
+        cur.pship = { runs: 0, balls: 0 };
+      }
+      if (overAcc.legal === 6 && !overAcc.complete) {
+        overAcc.complete = true;
+        cur.overRuns.push(overAcc.runs);
+        cur.lastOver = { no: b.over + 1, bowler: b.bowler, runs: overAcc.runs, balls: overAcc.tokens.join(' ') };
+      }
+      var s = snap(j + 1, b);
+      if (s.phase === 'break') breakIndex = j + 1;
+      states.push(s);
+    });
+
+    return { match: match, states: states, balls: balls, overs: overs, t1: t1, t2: t2, breakIndex: breakIndex, short: short };
+  }
+
+  // ---------- moments: what actually moved the match inside a window ----------
+
+  var FAMILY = {
+    wicket: 'wickets', collapse: 'wickets',
+    big_over: 'scoring', surge: 'scoring', squeeze: 'scoring', boundary: 'scoring',
+    drop: 'other', milestone: 'other', innings_end: 'other',
+  };
+  var KIND_TEXT = { bowled: 'bowled by', caught: 'caught off', lbw: 'lbw to', stumped: 'stumped off', 'run out': 'run out, bowler' };
+
+  function findMoments(tl, from, to) {
+    var S = tl.states;
+    var out = [];
+    function pts(a, b) { return (S[b].wp2 - S[a].wp2) * 100; }
+    function add(m) { m.family = FAMILY[m.type]; if (m.w === undefined) m.w = Math.abs(m.d); out.push(m); }
+
+    var wicketIdx = [];
+    for (var k = from + 1; k <= to; k++) {
+      var ball = tl.balls[k - 1];
+      var before = S[k - 1];
+      var after = S[k];
+      var at = ball.over + '.' + ball.n;
+      var bat = tl.short(ball.inn === 1 ? tl.t1 : tl.t2);
+
+      if (ball.wicket) {
+        wicketIdx.push(k);
+        var ob = after.batters[ball.wicket.player];
+        add({
+          type: 'wicket', a: k - 1, b: k, inn: ball.inn, label: at, d: pts(k - 1, k),
+          title: ob.name + ' out for ' + ob.runs + ' (' + ob.balls + ')',
+          detail: ob.name + ' ' + KIND_TEXT[ball.wicket.kind] + ' ' + ball.bowler + '. ' + bat + ' ' + after.score + '.',
+          data: { batter: ob.name, runs: ob.runs, balls: ob.balls, bowler: ball.bowler, kind: ball.wicket.kind, score: after.score, team: bat },
+        });
+      }
+
+      if (ball.dropped) {
+        var wktsLeft = 10 - before.wkts - 1;
+        var cf = ball.inn === 2
+          ? wpChase(before.need, before.ballsLeft - 1, wktsLeft)
+          : 1 - wpFirst(before.runs, before.ballsLeft - 1, wktsLeft);
+        var atDrop = before.batters[ball.striker].runs;
+        var nowB = S[to].batters[ball.striker];
+        var added = (S[to].inn === ball.inn && nowB ? nowB.runs : after.batters[ball.striker].runs) - atDrop;
+        add({
+          type: 'drop', a: k - 1, b: k, inn: ball.inn, label: at, d: (after.wp2 - cf) * 100,
+          title: ball.striker + ' dropped on ' + atDrop,
+          detail: ball.dropped.fielder + ' put down ' + ball.striker + ' at ' + ball.dropped.position + ' off ' + ball.bowler + '. He has added ' + added + ' since.',
+          data: { batter: ball.striker, runs: atDrop, fielder: ball.dropped.fielder, bowler: ball.bowler, position: ball.dropped.position, added: added, team: bat },
+        });
+      }
+
+      if (!ball.wicket && !ball.dropped && ball.bat >= 4 && Math.abs(pts(k - 1, k)) >= 10 && ball.inn === 2 && before.ballsLeft <= 30) {
+        add({
+          type: 'boundary', a: k - 1, b: k, inn: ball.inn, label: at, d: pts(k - 1, k),
+          title: ball.striker + ' hits a ' + (ball.bat === 6 ? 'six' : 'four') + ' off ' + ball.bowler,
+          detail: 'It was ' + before.need + ' needed off ' + before.ballsLeft + ' before the ball, ' + after.need + ' off ' + after.ballsLeft + ' after it.',
+          data: { batter: ball.striker, bowler: ball.bowler, hit: ball.bat === 6 ? 'six' : 'four', needBefore: before.need, ballsBefore: before.ballsLeft, needAfter: after.need, ballsAfter: after.ballsLeft, team: bat },
+        });
+      }
+
+      var sb = after.batters[ball.striker];
+      var prev = before.inn === ball.inn && before.batters[ball.striker] ? before.batters[ball.striker].runs : 0;
+      if (sb && prev < 50 && sb.runs >= 50) {
+        add({
+          type: 'milestone', a: k - 1, b: k, inn: ball.inn, label: at, d: pts(k - 1, k), w: 6,
+          title: sb.name + ' reaches fifty off ' + sb.balls + ' balls',
+          detail: sb.name + ' has ' + sb.runs + ' off ' + sb.balls + ' with ' + plural(sb.fours, 'four') + ' and ' + (sb.sixes === 1 ? '1 six' : sb.sixes + ' sixes') + '.',
+          data: { batter: sb.name, runs: sb.runs, balls: sb.balls, team: bat },
+        });
+      }
+
+      if (after.phase === 'break') {
+        var chasing = tl.short(tl.t2);
+        add({
+          type: 'innings_end', a: k - 1, b: k, inn: 1, label: 'innings break', d: 0, w: 10,
+          title: bat + ' finish on ' + after.score,
+          detail: chasing + ' need ' + (after.runs + 1) + ' to win at ' + round1((after.runs + 1) / tl.match.format.overs) + ' an over.',
+          data: { team: bat, score: after.score, chasing: chasing, target: after.runs + 1, rate: round1((after.runs + 1) / tl.match.format.overs) },
+        });
+      }
+    }
+
+    // Collapse: three or more wickets with no more than 15 balls between neighbours.
+    var group = [];
+    function flush() {
+      if (group.length >= 3) {
+        var a = group[0] - 1;
+        var b = group[group.length - 1];
+        var names = group.map(function (g) {
+          var n = tl.balls[g - 1].wicket.player;
+          return n + ' ' + S[g].batters[n].runs;
+        });
+        var team = tl.short(S[b].batting);
+        add({
+          type: 'collapse', a: a, b: b, inn: S[b].inn, d: pts(a, b),
+          label: S[a + 1].overText + ' to ' + S[b].overText,
+          title: 'Collapse: ' + group.length + ' wickets for ' + (S[b].runs - S[a].runs) + ' runs',
+          detail: team + ' went from ' + S[a].score + ' to ' + S[b].score + ' in ' + (S[b].gl - S[a].gl) + ' balls. Out: ' + names.join(', ') + '.',
+          data: { wickets: group.length, runs: S[b].runs - S[a].runs, balls: S[b].gl - S[a].gl, fromScore: S[a].score, toScore: S[b].score, names: names, team: team },
+        });
+      }
+      group = [];
+    }
+    wicketIdx.forEach(function (k) {
+      if (group.length) {
+        var last = group[group.length - 1];
+        if (S[k].inn !== S[last].inn || S[k].gl - S[last].gl > 15) flush();
+      }
+      group.push(k);
+    });
+    flush();
+
+    // Over level patterns, using only overs that sit fully inside the window.
+    var inside = tl.overs.filter(function (o) { return o.complete && o.a >= from && o.b <= to; });
+    inside.forEach(function (o) {
+      if (o.runs >= 15) {
+        var team = tl.short(o.inn === 1 ? tl.t1 : tl.t2);
+        add({
+          type: 'big_over', a: o.a, b: o.b, inn: o.inn, label: 'over ' + (o.over + 1), d: pts(o.a, o.b),
+          title: o.runs + ' runs off over ' + (o.over + 1),
+          detail: team + ' took ' + o.runs + ' off ' + o.bowler + ' (' + o.tokens.join(' ') + ').',
+          data: { runs: o.runs, over: o.over + 1, bowler: o.bowler, balls: o.tokens.join(' '), team: team },
+        });
+      }
+    });
+    function streaks(type, test, title) {
+      var run = [];
+      function end() {
+        if (run.length >= 2) {
+          var a = run[0].a;
+          var b = run[run.length - 1].b;
+          var runs = S[b].runs - S[a].runs;
+          var team = tl.short(run[0].inn === 1 ? tl.t1 : tl.t2);
+          var bowlers = run.map(function (o) { return o.bowler; }).filter(function (n, i, xs) { return xs.indexOf(n) === i; });
+          var rate = round1(runs / run.length);
+          add({
+            type: type, a: a, b: b, inn: run[0].inn, d: pts(a, b),
+            label: 'overs ' + (run[0].over + 1) + ' to ' + (run[run.length - 1].over + 1),
+            title: title + ': ' + runs + ' runs in ' + run.length + ' overs',
+            detail: team + ' scored ' + runs + ' in overs ' + (run[0].over + 1) + ' to ' + (run[run.length - 1].over + 1) + ' at ' + rate + ' an over. Bowlers: ' + bowlers.join(', ') + '.',
+            data: { runs: runs, overs: run.length, fromOver: run[0].over + 1, toOver: run[run.length - 1].over + 1, rate: rate, bowlers: bowlers, team: team },
+          });
+        }
+        run = [];
+      }
+      inside.forEach(function (o) {
+        var prev = run[run.length - 1];
+        if (prev && (prev.inn !== o.inn || prev.over + 1 !== o.over)) end();
+        if (test(o)) run.push(o); else end();
+      });
+      end();
+    }
+    streaks('squeeze', function (o) { return o.runs <= 5; }, 'Squeeze');
+    streaks('surge', function (o) { return o.runs >= 12; }, 'Run surge');
+
+    return out;
+  }
+
+  function selectMoments(cands, limit) {
+    var chosen = [];
+    cands.slice().sort(function (x, y) { return y.w - x.w; }).forEach(function (c) {
+      if (chosen.length >= limit) return;
+      var clash = chosen.some(function (x) {
+        if (x.family === 'other' || c.family === 'other') return false;
+        var overlap = Math.max(0, Math.min(c.b, x.b) - Math.max(c.a, x.a));
+        return overlap / Math.max(1, c.b - c.a) > 0.6 || overlap / Math.max(1, x.b - x.a) > 0.6;
+      });
+      if (!clash) chosen.push(c);
+    });
+    chosen.sort(function (x, y) { return x.a - y.a || x.b - y.b; });
+    return chosen;
+  }
+
+  // ---------- fact sheet: the only thing the narrator is allowed to use ----------
+
+  function perspective(tl, side) { return side === 'neutral' ? tl.t2 : side; }
+
+  function winPct(tl, s, team) { return Math.round((team === tl.t2 ? s.wp2 : 1 - s.wp2) * 100); }
+
+  function view(tl, s, team) {
+    var o = { innings: s.inn, batting: tl.short(s.batting), score: s.score, overs: s.overText, winPct: winPct(tl, s, team) };
+    if (s.phase === 'break') o.status = 'innings break';
+    if (s.inn === 2) { o.target = s.target; o.need = s.need; o.ballsLeft = s.ballsLeft; }
+    return o;
+  }
+
+  function oversLeftFor(s, name) { return Math.floor((s.quota - s.bowlers[name].balls) / 6); }
+
+  function watchNext(tl, s) {
+    if (s.phase === 'finished') return null;
+    if (s.phase === 'break') {
+      return { code: 'break', chasing: tl.short(tl.t2), target: s.runs + 1, rate: round1((s.runs + 1) / tl.match.format.overs) };
+    }
+    if (s.inn === 1) {
+      return { code: 'projection', team: tl.short(s.batting), projected: s.projected, par: PAR };
+    }
+    var keyBowler = null;
+    s.bowlOrder.forEach(function (n) {
+      var b = s.bowlers[n];
+      var left = oversLeftFor(s, n);
+      if (b.balls < 12 || left < 1) return;
+      var econ = round1((b.runs / b.balls) * 6);
+      if (!keyBowler || econ < keyBowler.economy) keyBowler = { name: n, oversLeft: left, economy: econ, runs: b.runs, wickets: b.wkts };
+    });
+    var setBatter = null;
+    s.crease.forEach(function (n) {
+      var b = s.batters[n];
+      if (b && b.runs >= 25 && (!setBatter || b.runs > setBatter.runs)) {
+        setBatter = { name: n, runs: b.runs, balls: b.balls, strikeRate: Math.round((b.runs / b.balls) * 100) };
+      }
+    });
+    var base = { team: tl.short(s.batting), need: s.need, ballsLeft: s.ballsLeft, requiredRate: s.rrr };
+    if (keyBowler) base.keyBowler = keyBowler;
+    if (setBatter) base.setBatter = setBatter;
+    if (s.ballsLeft <= 12) base.code = 'equation';
+    else if (setBatter && s.rrr >= 10) base.code = 'set_batter';
+    else if (keyBowler) base.code = 'key_bowler';
+    else base.code = 'equation';
+    return base;
+  }
+
+  function buildFacts(tl, from, to, side, label) {
+    var S = tl.states;
+    var team = perspective(tl, side);
+    var then = S[from];
+    var now = S[to];
+    var missed = { runs: 0, wickets: 0, fours: 0, sixes: 0, dotBalls: 0, balls: 0 };
+    for (var k = from; k < to; k++) {
+      var b = tl.balls[k];
+      missed.runs += b.bat + b.extras;
+      if (b.wicket) missed.wickets += 1;
+      if (b.bat === 4) missed.fours += 1;
+      if (b.bat === 6) missed.sixes += 1;
+      if (b.legal) { missed.balls += 1; if (b.bat + b.extras === 0) missed.dotBalls += 1; }
+    }
+    missed.overs = overText(missed.balls);
+    missed.runRate = missed.balls ? round1((missed.runs / missed.balls) * 6) : 0;
+
+    var nowView = view(tl, now, team);
+    nowView.currentRate = now.crr;
+    if (now.rrr !== null) nowView.requiredRate = now.rrr;
+    if (now.inn === 1 && now.phase === 'live') nowView.projected = now.projected;
+    nowView.status = now.phase === 'live' ? 'live' : now.phase === 'break' ? 'innings break' : 'finished';
+    if (now.result) { nowView.result = now.result.text; nowView.finalBall = tl.balls[to - 1].text; }
+    if (now.phase === 'live') {
+      nowView.batters = now.crease.map(function (n) { var x = now.batters[n]; return { name: n, runs: x ? x.runs : 0, balls: x ? x.balls : 0 }; });
+      nowView.partnership = { runs: now.pship.runs, balls: now.pship.balls };
+    }
+    if (now.first) nowView.firstInnings = { team: tl.short(now.first.team), score: now.first.score };
+    var other = team === tl.t2 ? tl.t1 : tl.t2;
+    nowView.winPctByTeam = {};
+    nowView.winPctByTeam[tl.short(team)] = winPct(tl, now, team);
+    nowView.winPctByTeam[tl.short(other)] = 100 - winPct(tl, now, team);
+
+    var change = winPct(tl, now, team) - winPct(tl, then, team);
+    var verdict;
+    if (now.phase === 'finished') verdict = !now.result.winner ? 'tied' : now.result.winner === team ? 'won' : 'lost';
+    else if (change >= 20) verdict = 'turned_for';
+    else if (change <= -20) verdict = 'turned_against';
+    else if (nowView.winPct >= 70) verdict = 'on_top';
+    else if (nowView.winPct <= 30) verdict = 'in_trouble';
+    else verdict = 'in_balance';
+
+    var sign = team === tl.t2 ? 1 : -1;
+    var moments = selectMoments(findMoments(tl, from, to), 3).map(function (m, i) {
+      var c = Math.round(m.d * sign) || 0;
+      return {
+        id: 'm' + (i + 1), type: m.type, over: m.label, innings: m.inn, title: m.title, detail: m.detail,
+        winPctChange: c, goodForTeam: c >= 0, data: m.data, a: m.a, b: m.b,
+      };
+    });
+
+    return {
+      format: tl.match.format.name + ', ' + tl.match.format.overs + ' overs a side',
+      fan: side === 'neutral' ? 'neutral' : 'supports ' + tl.short(team),
+      team: tl.short(team), opponent: tl.short(other), isFan: side !== 'neutral',
+      window: { label: label, from: then.overText + ' overs, innings ' + then.inn, to: now.overText + ' overs, innings ' + now.inn, oversMissed: missed.overs, crossedInnings: then.inn !== now.inn },
+      then: view(tl, then, team),
+      now: nowView,
+      missed: { runs: missed.runs, wickets: missed.wickets, fours: missed.fours, sixes: missed.sixes, dotBalls: missed.dotBalls, runRate: missed.runRate },
+      swing: { winPctChange: change, verdict: verdict },
+      moments: moments,
+      watch: watchNext(tl, now),
+    };
+  }
+
+  // Strip internal fields before the fact sheet is shown to a model.
+  function factsForModel(facts) {
+    var copy = JSON.parse(JSON.stringify(facts));
+    copy.moments.forEach(function (m) { delete m.a; delete m.b; delete m.data; });
+    delete copy.isFan;
+    return copy;
+  }
+
+  // ---------- context for free form questions ----------
+
+  function card(tl, s) {
+    return {
+      team: tl.short(s.batting), score: s.score, overs: s.overText,
+      batters: s.order.map(function (n) {
+        var x = s.batters[n];
+        return { name: n, runs: x.runs, balls: x.balls, fours: x.fours, sixes: x.sixes, status: x.out ? x.how : 'not out' };
+      }),
+      bowlers: s.bowlOrder.map(function (n) {
+        var x = s.bowlers[n];
+        return { name: n, overs: overText(x.balls), runs: x.runs, wickets: x.wkts, oversLeft: oversLeftFor(s, n) };
+      }),
+      fallOfWickets: s.fow.map(function (f) { return f.runs + '/' + f.wkt + ' (' + f.player + ', ' + f.over + ')'; }),
+      runsPerOver: s.overRuns,
+    };
+  }
+
+  function buildAskContext(tl, to, side) {
+    var s = tl.states[to];
+    var facts = buildFacts(tl, 0, to, side, 'whole match');
+    var ctx = {
+      match: tl.match.title, format: facts.format, fan: facts.fan,
+      status: facts.now.status, now: facts.now, watch: facts.watch,
+      players: {},
+    };
+    [tl.t1, tl.t2].forEach(function (code) {
+      ctx.players[tl.short(code)] = tl.match.teams[code].players.map(function (p) { return p.name; });
+    });
+    if (s.inn === 1) ctx.firstInnings = card(tl, s);
+    else { ctx.firstInnings = card(tl, tl.states[tl.breakIndex]); ctx.secondInnings = card(tl, s); }
+    var sign = 1;
+    ctx.turningPoints = selectMoments(findMoments(tl, 0, to), 5).map(function (m) {
+      var p = Math.round(m.d * sign);
+      return { over: m.label, innings: m.inn, what: m.title, detail: m.detail, winPctMove: Math.abs(p) + ' points toward ' + tl.short(p >= 0 ? tl.t2 : tl.t1) };
+    });
+    ctx.lastBalls = tl.balls.slice(Math.max(0, to - 6), to).map(function (b) { return b.over + '.' + b.n + ' ' + b.text; });
+    return ctx;
+  }
+
+  // First state index that is at most `balls` legal deliveries behind `to`.
+  function indexBallsBack(tl, to, balls) {
+    var S = tl.states;
+    var k = to;
+    while (k > 0 && S[to].gl - S[k - 1].gl <= balls) k--;
+    return k;
+  }
+  function inningsStart(tl, to) {
+    return tl.states[to].inn === 2 && tl.breakIndex !== null ? tl.breakIndex : 0;
+  }
+  function indexAt(tl, inn, legal) {
+    var S = tl.states;
+    if (inn === 2 && legal === 0 && tl.breakIndex !== null) return tl.breakIndex;
+    for (var k = 0; k < S.length; k++) if (S[k].inn === inn && S[k].legal === legal) return k;
+    return S.length - 1;
+  }
+
+  return {
+    PAR: PAR, phi: phi, expectedRuns: expectedRuns, wpChase: wpChase, wpFirst: wpFirst,
+    buildTimeline: buildTimeline, findMoments: findMoments, selectMoments: selectMoments,
+    buildFacts: buildFacts, factsForModel: factsForModel, buildAskContext: buildAskContext,
+    indexBallsBack: indexBallsBack, inningsStart: inningsStart, indexAt: indexAt,
+    winPct: winPct, perspective: perspective, oversLeftFor: oversLeftFor, overText: overText,
+  };
+});
+
+</script>
+<script>
+// Number grounding guard. The AI may choose words, never numbers.
+// Every number in AI text must already exist in the fact sheet it was given.
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.MSGuard = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  var NUM = /\d+(?:\.\d+)?/g;
+
+  function tokens(text) { return String(text == null ? '' : text).match(NUM) || []; }
+  function norm(t) { return String(parseFloat(t)); }
+
+  // Moment ids (m1, m2) are labels, not facts, so they are removed before collecting numbers.
+  function allowedNumbers(facts) {
+    var set = {};
+    var source = JSON.stringify(facts).replace(/"id":"m\d+"/g, '');
+    tokens(source).forEach(function (t) { set[t] = true; set[norm(t)] = true; });
+    return set;
+  }
+
+  function check(text, allowed) {
+    var bad = [];
+    tokens(text).forEach(function (t) {
+      if (!allowed[t] && !allowed[norm(t)] && bad.indexOf(t) === -1) bad.push(t);
+    });
+    return { ok: bad.length === 0, bad: bad };
+  }
+
+  function usable(s) { return typeof s === 'string' && s.trim().length > 0 && s.length <= 400; }
+
+  // Keep each AI line only if it passes. A failed line falls back to the engine's own line.
+  function mergeRecap(ai, fallback, facts) {
+    var allowed = allowedNumbers(facts);
+    var replaced = 0;
+    var bad = [];
+    function pickLine(candidate, safe) {
+      if (usable(candidate)) {
+        var r = check(candidate, allowed);
+        if (r.ok) return candidate.trim();
+        bad = bad.concat(r.bad);
+      }
+      replaced += 1;
+      return safe;
+    }
+    ai = ai && typeof ai === 'object' ? ai : {};
+    var byId = {};
+    (Array.isArray(ai.moments) ? ai.moments : []).forEach(function (m) { if (m && m.id) byId[m.id] = m.line; });
+    return {
+      text: {
+        headline: pickLine(ai.headline, fallback.headline),
+        story: pickLine(ai.story, fallback.story),
+        moments: fallback.moments.map(function (m) { return { id: m.id, line: pickLine(byId[m.id], m.line) }; }),
+        watch: pickLine(ai.watch, fallback.watch),
+      },
+      replaced: replaced,
+      total: 3 + fallback.moments.length,
+      bad: bad,
+    };
+  }
+
+  return { tokens: tokens, allowedNumbers: allowedNumbers, check: check, mergeRecap: mergeRecap };
+});
+
+</script>
+<script>
+// Instant narrator. Turns a fact sheet into a recap with fixed templates, in three voices.
+// It is the zero latency path, the offline path, and the safety net when an AI line fails the number check.
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.MSVoices = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+  function overs(text) { return String(text).replace(/\.0$/, ''); }
+  function leader(f) {
+    var v = f.swing.verdict;
+    if (v === 'turned_for' || v === 'on_top') return f.team;
+    if (v === 'turned_against' || v === 'in_trouble') return f.opponent;
+    return null;
+  }
+  function changeWords(c) { return c === 0 ? 'unchanged' : (c > 0 ? 'up ' : 'down ') + Math.abs(c) + ' points'; }
+
+  var OUT_SIMPLE = { bowled: 'bowled by', caught: 'caught off the bowling of', lbw: 'out leg before to', stumped: 'stumped off', 'run out': 'run out off' };
+  var OUT_HING = { bowled: 'bowled kar diya', caught: 'catch karwa diya', lbw: 'LBW kar diya', stumped: 'stump karwa diya', 'run out': 'run out karwa diya' };
+
+  var VOICES = {
+    simple: {
+      headline: function (f) {
+        var v = f.swing.verdict;
+        var T = f.team;
+        if (v === 'tied') return 'It finished as a tie.';
+        if (!f.isFan) {
+          if (v === 'won' || v === 'lost') return f.now.result + '.';
+          if (v === 'in_balance') return "Still anyone's game.";
+          return (v === 'turned_for' || v === 'turned_against' ? 'The game has swung toward ' + leader(f) : leader(f) + ' are in control') + '.';
+        }
+        return {
+          won: T + ' won! ' + f.now.result + '.',
+          lost: T + ' lost. ' + f.now.result + '.',
+          turned_for: 'Good news. The game has swung toward ' + T + '.',
+          turned_against: 'Bad news. The game has swung away from ' + T + '.',
+          on_top: T + ' are still in control.',
+          in_trouble: T + ' are still in trouble.',
+          in_balance: "Still anyone's game.",
+        }[v];
+      },
+      story: function (f) {
+        var p = [];
+        if (f.window.crossedInnings) p.push(f.now.firstInnings.team + ' finished their innings on ' + f.now.firstInnings.score + '.');
+        p.push('You missed ' + plural(overs(f.window.oversMissed), 'over').replace(/^1 overs/, '1 over') + ': ' + plural(f.missed.runs, 'run') + ' and ' + plural(f.missed.wickets, 'wicket') + '.');
+        if (f.now.status === 'finished') p.push('The final ball: ' + f.now.finalBall + '.');
+        else {
+          p.push(f.team + "'s win chance went from " + f.then.winPct + '% to ' + f.now.winPct + '%.');
+          if (f.now.status === 'live' && f.now.need !== undefined) p.push(f.now.batting + ' need ' + plural(f.now.need, 'run') + ' from ' + plural(f.now.ballsLeft, 'ball') + '.');
+        }
+        return p.join(' ');
+      },
+      moment: function (m) {
+        var d = m.data;
+        return {
+          wicket: function () { return d.batter + ' is out for ' + d.runs + ', ' + OUT_SIMPLE[d.kind] + ' ' + d.bowler + '.'; },
+          collapse: function () { return d.wickets + ' wickets fell for only ' + plural(d.runs, 'run') + '. ' + d.team + ' went from ' + d.fromScore + ' to ' + d.toScore + '.'; },
+          big_over: function () { return d.runs + ' runs came from a single over by ' + d.bowler + '. That is about double a normal over.'; },
+          squeeze: function () { return 'Only ' + plural(d.runs, 'run') + ' in ' + d.overs + ' overs. The bowlers shut the scoring down.'; },
+          surge: function () { return d.runs + ' runs in ' + d.overs + ' overs. That is very fast scoring.'; },
+          drop: function () { return d.fielder + ' dropped a catch from ' + d.batter + ' when he had ' + d.runs + '. He has made ' + d.added + ' more since.'; },
+          boundary: function () { return d.batter + ' hit a ' + d.hit + ' when ' + d.team + ' needed ' + d.needBefore + ' from ' + plural(d.ballsBefore, 'ball') + '.'; },
+          milestone: function () { return d.batter + ' reached fifty in ' + d.balls + ' balls.'; },
+          innings_end: function () { return d.team + ' finished on ' + d.score + '. ' + d.chasing + ' need ' + d.target + ' to win.'; },
+        }[m.type]();
+      },
+      watch: function (w) {
+        if (!w) return 'That is the match.';
+        var kb = w.keyBowler;
+        var sb = w.setBatter;
+        return {
+          equation: function () { return 'Watch the maths: ' + plural(w.need, 'run') + ' from ' + plural(w.ballsLeft, 'ball') + '.' + (kb ? ' ' + kb.name + ' still has ' + plural(kb.oversLeft, 'over') + ' to bowl.' : ''); },
+          set_batter: function () { return 'Watch ' + sb.name + '. He has ' + sb.runs + ' from ' + sb.balls + ' balls and ' + w.team + ' need him to stay in.'; },
+          key_bowler: function () { return 'Watch ' + kb.name + '. He has ' + plural(kb.oversLeft, 'over') + ' left and has been the hardest bowler to score off.'; },
+          projection: function () { return w.team + ' are heading for about ' + w.projected + '. Around ' + w.par + ' is a normal score here.'; },
+          break: function () { return 'The chase is about to start. ' + w.chasing + ' need ' + w.target + '.'; },
+        }[w.code]();
+      },
+    },
+
+    hinglish: {
+      headline: function (f) {
+        var v = f.swing.verdict;
+        var T = f.team;
+        if (v === 'tied') return 'Match tie ho gaya.';
+        if (v === 'in_balance') return 'Match phasa hua hai. Kuch bhi ho sakta hai.';
+        if (!f.isFan) {
+          if (v === 'won' || v === 'lost') return f.now.result + '. Kya match tha.';
+          return v === 'turned_for' || v === 'turned_against' ? 'Game ' + leader(f) + ' ki taraf ghoom gaya.' : leader(f) + ' ka palda bhaari hai.';
+        }
+        return {
+          won: 'Jeet gaye! ' + f.now.result + '.',
+          lost: 'Haar gaye yaar. ' + f.now.result + '.',
+          turned_for: 'Mast khabar. Game ' + T + ' ki taraf ghoom gaya.',
+          turned_against: 'Bhai, game palat gaya. ' + T + ' mushkil mein hai.',
+          on_top: 'Tension mat le. ' + T + ' abhi bhi aage hai.',
+          in_trouble: 'Halat abhi bhi kharab hai. ' + T + ' peeche hai.',
+        }[v];
+      },
+      story: function (f) {
+        var p = [];
+        if (f.window.crossedInnings) p.push(f.now.firstInnings.team + ' ki innings ' + f.now.firstInnings.score + ' pe khatam hui.');
+        p.push('Tere jaane ke baad ' + overs(f.window.oversMissed) + ' over mein ' + f.missed.runs + ' run bane aur ' + (f.missed.wickets ? f.missed.wickets + ' wicket gire.' : 'koi wicket nahi gira.'));
+        if (f.now.status === 'finished') p.push('Aakhri ball: ' + f.now.finalBall + '.');
+        else {
+          p.push(f.team + ' ka jeetne ka chance ' + f.then.winPct + '% se ' + f.now.winPct + '% ho gaya.');
+          if (f.now.status === 'live' && f.now.need !== undefined) p.push('Ab ' + f.now.batting + ' ko ' + f.now.need + ' run chahiye ' + f.now.ballsLeft + ' ball mein.');
+        }
+        return p.join(' ');
+      },
+      moment: function (m) {
+        var d = m.data;
+        return {
+          wicket: function () { return d.batter + ' ' + d.runs + ' pe out, ' + d.bowler + ' ne ' + OUT_HING[d.kind] + '.'; },
+          collapse: function () { return d.wickets + ' wicket sirf ' + d.runs + ' run mein gir gaye. ' + d.fromScore + ' se seedha ' + d.toScore + '.'; },
+          big_over: function () { return d.bowler + ' ke ek over mein ' + d.runs + ' run thok diye.'; },
+          squeeze: function () { return d.overs + ' over mein sirf ' + d.runs + ' run. Run bilkul sukh gaye.'; },
+          surge: function () { return d.overs + ' over mein ' + d.runs + ' run. Full dhulai hui.'; },
+          drop: function () { return d.fielder + ' ne ' + d.batter + ' ka catch chhod diya ' + d.runs + ' pe. Uske baad usne ' + d.added + ' aur bana liye.'; },
+          boundary: function () { return d.batter + ' ne ' + d.bowler + ' ko ' + (d.hit === 'six' ? 'chhakka' : 'chauka') + ' maara, jab ' + d.needBefore + ' chahiye the ' + d.ballsBefore + ' ball mein.'; },
+          milestone: function () { return d.batter + ' ki fifty, sirf ' + d.balls + ' ball mein.'; },
+          innings_end: function () { return d.team + ' ne ' + d.score + ' banaye. ' + d.chasing + ' ko jeetne ke liye ' + d.target + ' chahiye.'; },
+        }[m.type]();
+      },
+      watch: function (w) {
+        if (!w) return 'Bas, match khatam.';
+        var kb = w.keyBowler;
+        var sb = w.setBatter;
+        return {
+          equation: function () { return 'Ab seedha hisaab: ' + w.need + ' run, ' + w.ballsLeft + ' ball.' + (kb ? ' ' + kb.name + ' ka ' + kb.oversLeft + ' over abhi baaki hai.' : ''); },
+          set_batter: function () { return sb.name + ' pe nazar rakh. ' + sb.runs + ' bana chuka hai ' + sb.balls + ' ball mein. Woh tika toh match zinda hai.'; },
+          key_bowler: function () { return kb.name + ' ka ' + kb.oversLeft + ' over baaki hai aur usko maarna sabse mushkil raha hai.'; },
+          projection: function () { return w.team + ' ' + w.projected + ' ke aas paas ja rahe hai. Yahan ' + w.par + ' normal score hai.'; },
+          break: function () { return 'Chase shuru hone wala hai. ' + w.chasing + ' ko ' + w.target + ' chahiye.'; },
+        }[w.code]();
+      },
+    },
+
+    analyst: {
+      headline: function (f) {
+        var v = f.swing.verdict;
+        if (v === 'won' || v === 'lost' || v === 'tied') return f.now.result + '.';
+        if (v === 'turned_for' || v === 'turned_against') {
+          return f.team + ' win chance ' + changeWords(f.swing.winPctChange) + ', ' + f.then.winPct + '% to ' + f.now.winPct + '%.';
+        }
+        return f.team + ' win chance ' + f.now.winPct + '%, ' + changeWords(f.swing.winPctChange) + ' in this window.';
+      },
+      story: function (f) {
+        var p = [];
+        if (f.window.crossedInnings) p.push(f.now.firstInnings.team + ' closed on ' + f.now.firstInnings.score + '.');
+        p.push('Window of ' + overs(f.window.oversMissed) + ' overs: ' + plural(f.missed.runs, 'run') + ', ' + plural(f.missed.wickets, 'wicket') + ', run rate ' + f.missed.runRate + ', ' + plural(f.missed.dotBalls, 'dot ball') + '.');
+        if (f.now.status === 'finished') p.push('Final ball: ' + f.now.finalBall + '.');
+        else if (f.now.requiredRate !== undefined) p.push('Required rate ' + f.now.requiredRate + ' against a current rate of ' + f.now.currentRate + '.');
+        else if (f.now.projected !== undefined) p.push('Projected total ' + f.now.projected + '.');
+        return p.join(' ');
+      },
+      moment: function (m) { return m.detail; },
+      watch: function (w) {
+        if (!w) return 'Match complete.';
+        var kb = w.keyBowler;
+        var sb = w.setBatter;
+        var kbText = kb ? ' ' + kb.name + ': ' + plural(kb.oversLeft, 'over') + ' left, economy ' + kb.economy + '.' : '';
+        return {
+          equation: function () { return w.need + ' off ' + w.ballsLeft + ', required rate ' + w.requiredRate + '.' + kbText; },
+          set_batter: function () { return sb.name + ' ' + sb.runs + ' (' + sb.balls + '), strike rate ' + sb.strikeRate + '. Required rate ' + w.requiredRate + '.' + kbText; },
+          key_bowler: function () { return kb.name + ' has ' + plural(kb.oversLeft, 'over') + ' left at economy ' + kb.economy + ', the best of the attack.'; },
+          projection: function () { return 'Projected ' + w.projected + ' against a par of ' + w.par + '.'; },
+          break: function () { return 'Target ' + w.target + ' at ' + w.rate + ' an over.'; },
+        }[w.code]();
+      },
+    },
+  };
+
+  function instantRecap(facts, voice) {
+    var v = VOICES[voice] || VOICES.simple;
+    return {
+      headline: v.headline(facts),
+      story: v.story(facts),
+      moments: facts.moments.map(function (m) { return { id: m.id, line: v.moment(m) }; }),
+      watch: v.watch(facts.watch),
+    };
+  }
+
+  // Scorecard answers for when no AI is available. Keyword routing, plain English.
+  function quickAnswer(ctx, question) {
+    var q = String(question).toLowerCase();
+    var now = ctx.now;
+    var cards = [ctx.secondInnings, ctx.firstInnings].filter(Boolean);
+    var live = cards[0];
+
+    for (var c = 0; c < cards.length; c++) {
+      var card = cards[c];
+      for (var i = 0; i < card.batters.length; i++) {
+        var b = card.batters[i];
+        if (q.indexOf(b.name.toLowerCase()) !== -1) {
+          return b.name + ' (' + card.team + '): ' + b.runs + ' off ' + b.balls + ' with ' + plural(b.fours, 'four') + ' and ' + (b.sixes === 1 ? '1 six' : b.sixes + ' sixes') + ', ' + b.status + '.';
+        }
+      }
+      for (var j = 0; j < card.bowlers.length; j++) {
+        var w = card.bowlers[j];
+        if (q.indexOf(w.name.toLowerCase()) !== -1) {
+          return w.name + ': ' + w.overs + ' overs, ' + plural(w.runs, 'run') + ', ' + plural(w.wickets, 'wicket') + ', ' + plural(w.oversLeft, 'over') + ' left.';
+        }
+      }
+    }
+    if (/bowl|overs left|spell|baaki/.test(q)) {
+      var left = live.bowlers.filter(function (x) { return x.oversLeft > 0; });
+      if (now.status !== 'live') return 'No overs left to bowl in this innings.';
+      return left.length
+        ? 'Overs left: ' + left.map(function (x) { return x.name + ' ' + x.oversLeft + ' (' + x.runs + ' runs, ' + plural(x.wickets, 'wicket') + ' so far)'; }).join(', ') + '.'
+        : 'Nobody who has bowled so far has overs left.';
+    }
+    if (/need|requir|target|equation|chahiye|kitna|rate/.test(q)) {
+      if (now.status === 'finished') return now.result + '.';
+      if (now.need !== undefined) return now.batting + ' need ' + plural(now.need, 'run') + ' from ' + plural(now.ballsLeft, 'ball') + '. Required rate ' + now.requiredRate + ', current rate ' + now.currentRate + '.';
+      return now.batting + ' are ' + now.score + ' after ' + now.overs + ' overs' + (now.projected ? ', heading for about ' + now.projected : '') + '.';
+    }
+    if (/win|chance|jeet|ahead|favou?rite/.test(q)) {
+      if (now.status === 'finished') return now.result + '.';
+      var parts = Object.keys(now.winPctByTeam).map(function (t) { return t + ' ' + now.winPctByTeam[t] + '%'; });
+      var tp = ctx.turningPoints.slice().sort(function (x, y) { return parseInt(y.winPctMove, 10) - parseInt(x.winPctMove, 10); })[0];
+      return 'Win chance on the model: ' + parts.join(', ') + '.' + (tp ? ' Biggest swing so far: ' + tp.what + ' (' + tp.over + ').' : '');
+    }
+    if (/turn|happen|kya hua|why|chang|swing|moment/.test(q)) {
+      if (!ctx.turningPoints.length) return 'Nothing has swung the match yet.';
+      return ctx.turningPoints.map(function (t) { return t.what + ' (' + t.over + ', ' + t.winPctMove + ')'; }).join('. ') + '.';
+    }
+    if (/partnership|stand/.test(q) && now.partnership) return 'Current partnership: ' + now.partnership.runs + ' off ' + now.partnership.balls + ' balls.';
+    if (/wicket|out|dismiss|gir/.test(q)) {
+      return live.fallOfWickets.length ? 'Fall of wickets for ' + live.team + ': ' + live.fallOfWickets.join(', ') + '.' : live.team + ' have not lost a wicket yet.';
+    }
+    if (/bat|crease|strike|playing|khel/.test(q) && now.batters) {
+      return 'At the crease: ' + now.batters.map(function (x) { return x.name + ' ' + x.runs + ' (' + x.balls + ')'; }).join(' and ') + '.';
+    }
+    return 'Without AI I can answer from the scorecard: what a team needs, who has overs left, the turning points, the win chance, or any player by name.';
+  }
+
+  return { instantRecap: instantRecap, quickAnswer: quickAnswer };
+});
+
+</script>
+<script>
+// AI narrator. Three ways to reach a model, tried in this order:
+//   1. Claude inside the published demo page (runs on the viewer's own Claude account)
+//   2. The local FastAPI server in /server (your own API key, any provider)
+//   3. None. The app still works on the instant narrator.
+// The model only ever sees the fact sheet, and its numbers are checked by guard.js.
+(function (root) {
+  'use strict';
+  var P = root.MSPrompts;
+  var mode = { kind: 'checking', label: 'Checking for an AI narrator' };
+  var sample = null;
+
+  function fill(lines, vars) {
+    return lines.join('\n').replace(/\{(\w+)\}/g, function (all, k) { return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : all; });
+  }
+  function recapPrompt(facts, voice) {
+    return fill(P.recap, { voice: P.voices[voice], fan: facts.fan, facts: JSON.stringify(facts) });
+  }
+  function askPrompt(ctx, voice, question) {
+    return fill(P.ask, { voice: P.voices[voice], fan: ctx.fan, context: JSON.stringify(ctx), question: String(question).slice(0, 300) });
+  }
+
+  async function detect() {
+    if (root.claude && typeof root.claude.use === 'function') {
+      try {
+        var s = await root.claude.use('sample');
+        if (s) {
+          sample = s;
+          mode = { kind: 'artifact', label: 'Claude, on your own account. It asks permission the first time.' };
+          return mode;
+        }
+      } catch (e) { /* fall through */ }
+    }
+    try {
+      var r = await fetch('api/health');
+      if (r.ok) {
+        var j = await r.json();
+        mode = j.ai
+          ? { kind: 'server', label: j.provider + ' ' + j.model + ', through the local server' }
+          : { kind: 'none', label: 'Off. The server has no API key, see .env.example' };
+        return mode;
+      }
+    } catch (e) { /* no server */ }
+    mode = { kind: 'none', label: 'Off in this view. Recaps come from the match engine.' };
+    return mode;
+  }
+
+  var COPY = {
+    not_granted: 'Claude was not allowed on this page, so this is the instant recap.',
+    sampling_disabled: 'Claude is not available on this account, so this is the instant recap.',
+    rate_limited: 'The AI narrator is busy or at its usage limit, so this comes from the match engine. Try again in a bit.',
+    session_expired: 'Your Claude session expired. Sign in again to use the AI narrator.',
+    refused: 'The AI declined that one.',
+    invalid_json: 'The AI reply was not usable, so this is the instant recap.',
+    no_ai: 'The AI narrator is off in this view, so this comes straight from the match engine.',
+  };
+  function fail(e) {
+    var code = (e && e.code) || 'upstream_error';
+    if (code === 'not_granted' || code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled') {
+      mode = { kind: 'none', label: 'Off. Claude was not allowed on this page.' };
+    }
+    return { ok: false, code: code, message: COPY[code] || 'The AI call failed, so this comes straight from the match engine.' };
+  }
+
+  async function post(path, body) {
+    var r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var j = await r.json().catch(function () { return null; });
+    if (!r.ok || !j || !j.ok) throw { code: (j && j.code) || 'upstream_error' };
+    return j;
+  }
+
+  // Returns { ok, recap } where recap is the raw model JSON. The caller runs the number check.
+  async function recap(facts, voice) {
+    if (mode.kind === 'artifact') {
+      try { return { ok: true, recap: await sample.json(recapPrompt(facts, voice), { modelTier: 'quick' }) }; }
+      catch (e) { return fail(e); }
+    }
+    if (mode.kind === 'server') {
+      try { var j = await post('api/recap', { facts: facts, voice: voice }); return { ok: true, recap: j.recap }; }
+      catch (e) { return fail(e); }
+    }
+    return { ok: false, code: 'no_ai', message: COPY.no_ai };
+  }
+
+  // Returns { ok, answer }. onText streams partial text where the transport supports it.
+  async function ask(ctx, voice, question, onText) {
+    if (mode.kind === 'artifact') {
+      try {
+        var res = await sample(askPrompt(ctx, voice, question), { modelTier: 'quick', onText: function (u) { onText(u.text); } });
+        return { ok: true, answer: res.text };
+      } catch (e) { return fail(e); }
+    }
+    if (mode.kind === 'server') {
+      try { var j = await post('api/ask', { context: ctx, voice: voice, question: question }); return { ok: true, answer: j.answer }; }
+      catch (e) { return fail(e); }
+    }
+    return { ok: false, code: 'no_ai', message: COPY.no_ai };
+  }
+
+  root.MSAI = {
+    detect: detect, recap: recap, ask: ask,
+    mode: function () { return mode; },
+    recapPrompt: recapPrompt, askPrompt: askPrompt,
+  };
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+// MatchSync app shell. Runs the replay clock, tracks when the fan last looked,
+// asks the engine for a fact sheet, and renders the recap (instant first, AI on request).
+(function () {
+  'use strict';
+  var E = window.MSEngine;
+  var V = window.MSVoices;
+  var G = window.MSGuard;
+  var AI = window.MSAI;
+  var tl = E.buildTimeline(window.MSMatch);
+  var S = tl.states;
+  var N = S.length - 1;
+  var SVG = 'http://www.w3.org/2000/svg';
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function svg(tag, attrs, text) {
+    var n = document.createElementNS(SVG, tag);
+    Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function oversBetween(a, b) {
+    var t = E.overText(S[b].gl - S[a].gl).replace(/\.0$/, '');
+    return t + (t === '1' ? ' over has' : ' overs have');
+  }
+  function load(key, fallback, allowed) {
+    try { var v = localStorage.getItem('ms.' + key); return allowed.indexOf(v) !== -1 ? v : fallback; } catch (e) { return fallback; }
+  }
+  function save(key, value) { try { localStorage.setItem('ms.' + key, value); } catch (e) { /* storage is optional */ } }
+
+  var START_NOW = E.indexAt(tl, 2, 84);  // 14.0 overs into the chase
+  var START_SEEN = E.indexAt(tl, 2, 42); // the fan last looked at 7.0 overs
+
+  var st = {
+    now: START_NOW, seen: START_SEEN,
+    side: load('side', 'KON', ['KON', 'SAH', 'neutral']),
+    voice: load('voice', 'hinglish', ['hinglish', 'simple', 'analyst']),
+    win: 'away', playing: true, speed: 10000, lastTick: Date.now(),
+    recap: null, aiOn: false, req: 0, welcome: false,
+  };
+
+  function team() { return E.perspective(tl, st.side); }
+
+  // ---------- which stretch of the match to catch up on ----------
+  function range() {
+    var to = st.now;
+    var win = st.win === 'away' && st.seen >= st.now ? '2' : st.win;
+    if (win === 'away') return { from: st.seen, to: to, win: win, label: 'Since you looked away' };
+    if (win === '2') return { from: E.indexBallsBack(tl, to, 12), to: to, win: win, label: 'Last 2 overs' };
+    if (win === '5') return { from: E.indexBallsBack(tl, to, 30), to: to, win: win, label: 'Last 5 overs' };
+    if (win === 'inn') return { from: E.inningsStart(tl, to), to: to, win: win, label: 'This innings' };
+    return { from: 0, to: to, win: win, label: 'Whole match' };
+  }
+
+  function takeRecap(useAI) {
+    var r = range();
+    var facts = E.buildFacts(tl, r.from, r.to, st.side, r.label.toLowerCase());
+    var instant = V.instantRecap(facts, st.voice);
+    var id = ++st.req;
+    st.recap = { facts: facts, text: instant, source: 'instant', from: r.from, to: r.to, win: r.win, label: r.label, note: '', busy: false };
+    if (useAI) {
+      var forModel = E.factsForModel(facts);
+      st.recap.busy = true;
+      AI.recap(forModel, st.voice).then(function (res) {
+        if (id !== st.req) return;
+        st.recap.busy = false;
+        if (res.ok) {
+          var m = G.mergeRecap(res.recap, instant, forModel);
+          st.recap.text = m.text;
+          if (m.replaced === m.total) {
+            st.recap.note = 'The AI draft failed the number check on every line, so this is the instant recap.';
+          } else {
+            st.recap.source = 'ai';
+            st.aiOn = true;
+            st.recap.note = m.replaced
+              ? plural(m.replaced, 'line') + ' failed the number check and came from the match engine instead.'
+              : 'Words by AI. Every number checked against the scorecard.';
+          }
+        } else {
+          st.recap.note = res.message;
+          if (AI.mode().kind === 'none') st.aiOn = false;
+        }
+        renderAll();
+      });
+    }
+    renderAll();
+  }
+
+  // ---------- scoreboard ----------
+  var TOKEN_CLASS = { '.': 't-dot', '4': 't-four', '6': 't-six', W: 't-wicket', wd: 't-extra', nb: 't-extra' };
+
+  function renderBoard() {
+    var s = S[st.now];
+    var chasing = tl.short(tl.t2);
+    var live = s.phase === 'live';
+    $('live-tag').className = 'live ' + (live && st.playing ? 'on' : 'off');
+    $('status-text').textContent = s.phase === 'finished' ? 'Full time' : s.phase === 'break' ? 'Innings break' : st.playing ? 'Live' : 'Paused';
+    $('innings-text').textContent = s.inn === 1 ? '1st innings' : '2nd innings';
+    $('bat-team').textContent = tl.short(s.batting);
+    $('bat-score').textContent = s.score;
+    $('bat-overs').textContent = s.overText + ' ov';
+    $('other-line').textContent = s.inn === 2 ? tl.short(s.first.team) + ' ' + s.first.score + ' (' + s.first.overs + ' ov)' : chasing + ' yet to bat';
+    $('equation').textContent = s.phase === 'finished' ? s.result.text
+      : s.phase === 'break' ? chasing + ' need ' + (s.runs + 1) + ' to win'
+        : s.inn === 2 ? 'Need ' + plural(s.need, 'run') + ' from ' + plural(s.ballsLeft, 'ball')
+          : 'On course for about ' + s.projected;
+    $('rrr').textContent = s.rrr === null ? '-' : s.rrr.toFixed(1);
+    $('crr').textContent = s.crr.toFixed(1);
+    $('crease').textContent = s.crease.map(function (n) {
+      var b = s.batters[n];
+      return n + ' ' + (b ? b.runs : 0) + ' (' + (b ? b.balls : 0) + ')';
+    }).join(', ') || '-';
+
+    var list = $('recent');
+    list.textContent = '';
+    s.recent.forEach(function (t) {
+      var li = el('li', TOKEN_CLASS[t] || 't-run', t === '.' ? '•' : t);
+      list.appendChild(li);
+    });
+    if (!s.recent.length) list.appendChild(el('li', 't-dot', '-'));
+
+    var T = team();
+    var other = T === tl.t2 ? tl.t1 : tl.t2;
+    var p = E.winPct(tl, s, T);
+    $('wp-left').textContent = tl.short(T) + ' ' + p + '%';
+    $('wp-right').textContent = (100 - p) + '% ' + tl.short(other);
+    $('wp-fill').style.width = p + '%';
+
+    $('scrub').value = st.now;
+    $('scrub-out').textContent = 'Innings ' + (s.phase === 'break' ? '1, done' : s.inn + ', ' + s.overText + ' ov');
+    $('play').textContent = st.playing ? 'Pause' : st.now >= N ? 'Finished' : 'Play';
+    $('play').disabled = st.now >= N;
+    if (AI.mode().kind !== 'checking') $('ai-status').textContent = AI.mode().label;
+  }
+
+  // ---------- away band ----------
+  function renderAway() {
+    var line;
+    if (st.seen < st.now) {
+      var a = S[st.seen];
+      var where = a.overText + ' overs' + (a.inn !== S[st.now].inn ? ' of the first innings' : '');
+      line = (st.welcome ? 'Welcome back. ' : '') + 'You looked away at ' + where + ', ' + tl.short(a.batting) + ' ' + a.score + '. ' + oversBetween(st.seen, st.now) + ' gone since.';
+    } else {
+      line = 'You are up to date. Look away, and a catch up will be waiting when you come back.';
+    }
+    $('away-line').textContent = line;
+    var active = range().win;
+    Array.prototype.forEach.call($('window-chips').children, function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.win === active));
+      if (b.dataset.win === 'away') b.disabled = st.seen >= st.now;
+    });
+    $('catchup').disabled = !!(st.recap && st.recap.busy);
+    $('catchup').textContent = st.recap && st.recap.busy ? 'Writing your catch up' : 'Catch me up';
+    $('caught').hidden = st.seen >= st.now;
+  }
+
+  // ---------- recap card ----------
+  function renderRecap() {
+    var rc = st.recap;
+    var f = rc.facts;
+    var tag = $('recap-source');
+    tag.className = 'tag' + (rc.busy ? ' busy' : rc.source === 'ai' ? ' ai' : '');
+    tag.textContent = rc.busy ? 'AI is writing' : rc.source === 'ai' ? 'AI recap' : 'Instant recap';
+    var a = S[rc.from];
+    var b = S[rc.to];
+    var cross = a.inn !== b.inn;
+    $('recap-window').textContent = rc.label + ', ' + (cross ? 'innings 1 at ' : '') + a.overText + ' to ' + (cross ? 'innings 2 at ' : '') + b.overText + ' overs';
+    $('recap-headline').textContent = rc.text.headline;
+    $('tn-then-label').textContent = rc.win === 'away' ? 'When you left' : 'Before';
+    $('tn-then-score').textContent = f.then.batting + ' ' + f.then.score;
+    $('tn-then-sub').textContent = f.then.overs + ' ov, ' + f.team + ' win chance ' + f.then.winPct + '%';
+    $('tn-now-score').textContent = f.now.batting + ' ' + f.now.score;
+    $('tn-now-sub').textContent = f.now.overs + ' ov, ' + f.team + ' win chance ' + f.now.winPct + '%';
+    $('recap-story').textContent = rc.text.story;
+
+    var list = $('recap-moments');
+    list.textContent = '';
+    f.moments.forEach(function (m, i) {
+      var tone = m.goodForTeam ? 'good' : 'bad';
+      var li = el('li');
+      li.appendChild(el('span', 'm-n ' + tone, String(i + 1)));
+      var body = el('div', 'm-body');
+      body.appendChild(el('span', 'm-title', m.title));
+      var line = rc.text.moments[i] ? rc.text.moments[i].line : '';
+      if (line && line !== m.title) body.appendChild(el('span', 'm-line', line));
+      body.appendChild(el('span', 'm-over', (m.type === 'innings_end' ? 'End of innings ' + m.innings : 'Innings ' + m.innings + ', ' + m.over)));
+      li.appendChild(body);
+      if (m.winPctChange !== 0) {
+        var sw = el('span', 'm-swing ' + tone, (m.winPctChange > 0 ? '+' : '−') + Math.abs(m.winPctChange) + ' ');
+        sw.appendChild(el('small', '', 'pts'));
+        sw.title = f.team + ' win chance moved ' + m.winPctChange + ' points';
+        li.appendChild(sw);
+      }
+      list.appendChild(li);
+    });
+    $('moments-empty').hidden = f.moments.length > 0;
+    $('recap-watch').textContent = rc.text.watch;
+
+    var note = $('recap-note');
+    note.textContent = '';
+    if (rc.note) note.appendChild(el('span', '', rc.note));
+    if (rc.to !== st.now && !rc.busy) {
+      var gone = Math.abs(st.now - rc.to);
+      note.appendChild(el('span', '', (st.now > rc.to ? plural(gone, 'ball') + ' bowled since this recap.' : 'This recap is from later in the match.')));
+      var up = el('button', '', 'Update');
+      up.type = 'button';
+      up.id = 'recap-update';
+      up.addEventListener('click', function () { takeRecap(st.aiOn); });
+      note.appendChild(up);
+    }
+    renderWorm();
+  }
+
+  // ---------- win chance worm ----------
+  function renderWorm() {
+    var rc = st.recap;
+    var T = team();
+    var g = $('worm');
+    g.textContent = '';
+    // Drawn at the real pixel width so axis text stays readable on a phone.
+    var W = Math.max(280, Math.round(g.parentNode.clientWidth) || 640);
+    g.setAttribute('viewBox', '0 0 ' + W + ' 196');
+    var x0 = 34, x1 = W - 14, y0 = 16, y1 = 150;
+    function pos(s) { return (s.phase === 'break' ? 120 : (s.inn - 1) * 120 + s.legal); }
+    function X(s) { return x0 + (pos(s) / 240) * (x1 - x0); }
+    function Y(p) { return y1 - (p / 100) * (y1 - y0); }
+    function P(s) { return (T === tl.t2 ? s.wp2 : 1 - s.wp2) * 100; }
+    $('worm-title').textContent = tl.short(T) + ' win chance, ball by ball';
+
+    var a = S[rc.from], b = S[rc.to];
+    if (rc.to > rc.from) {
+      g.appendChild(svg('rect', { class: 'missed', x: X(a), y: y0, width: Math.max(2, X(b) - X(a)), height: y1 - y0 }));
+      g.appendChild(svg('line', { class: 'missed-edge', x1: X(a), y1: y0, x2: X(a), y2: y1 }));
+    }
+    [0, 100].forEach(function (p) { g.appendChild(svg('line', { class: 'grid', x1: x0, y1: Y(p), x2: x1, y2: Y(p) })); });
+    g.appendChild(svg('line', { class: 'mid', x1: x0, y1: Y(50), x2: x1, y2: Y(50) }));
+    [[0, '0'], [50, '50'], [100, '100%']].forEach(function (t) {
+      g.appendChild(svg('text', { x: x0 - 5, y: Y(t[0]) + 4, 'text-anchor': 'end' }, t[1]));
+    });
+    var mid = x0 + (x1 - x0) / 2;
+    g.appendChild(svg('line', { class: 'split', x1: mid, y1: y0, x2: mid, y2: y1 + 6 }));
+    [5, 10, 15, 20].forEach(function (o) {
+      [0, 1].forEach(function (inn) {
+        var x = x0 + ((inn * 120 + o * 6) / 240) * (x1 - x0);
+        g.appendChild(svg('text', { x: x, y: y1 + 16, 'text-anchor': o === 20 ? 'end' : 'middle' }, String(o)));
+      });
+    });
+    g.appendChild(svg('text', { x: x0 + (x1 - x0) / 4, y: y1 + 36, 'text-anchor': 'middle' }, tl.short(tl.t1) + ' innings, overs'));
+    g.appendChild(svg('text', { x: x0 + ((x1 - x0) * 3) / 4, y: y1 + 36, 'text-anchor': 'middle' }, tl.short(tl.t2) + ' innings, overs'));
+
+    var d = '';
+    for (var k = 0; k <= rc.to; k++) d += (k ? 'L' : 'M') + X(S[k]).toFixed(1) + ' ' + Y(P(S[k])).toFixed(1);
+    if (rc.to > 0) {
+      g.appendChild(svg('path', { class: 'area', d: d + 'L' + X(b).toFixed(1) + ' ' + y1 + 'L' + x0 + ' ' + y1 + 'Z' }));
+      g.appendChild(svg('path', { class: 'line', d: d }));
+    }
+
+    var taken = [];
+    rc.facts.moments.forEach(function (m, i) {
+      var s = S[m.b];
+      var px = X(s);
+      var py = Y(P(s));
+      taken.forEach(function (t) { if (Math.abs(t.x - px) < 20 && Math.abs(t.y - py) < 20) py = t.y + (t.y > 80 ? -21 : 21); });
+      py = Math.max(y0 + 2, Math.min(y1 - 2, py));
+      taken.push({ x: px, y: py });
+      g.appendChild(svg('circle', { class: 'pin ' + (m.goodForTeam ? 'good' : 'bad'), cx: px, cy: py, r: 9 }));
+      g.appendChild(svg('text', { class: 'pin-n', x: px, y: py + 4, 'text-anchor': 'middle' }, String(i + 1)));
+    });
+
+    var ex = X(b), ey = Y(P(b));
+    var clash = taken.some(function (t) { return Math.abs(t.x - ex) < 12 && Math.abs(t.y - ey) < 12; });
+    if (!clash) g.appendChild(svg('circle', { class: 'end', cx: ex, cy: ey, r: 4.5 }));
+    var right = ex < x1 - 50;
+    g.appendChild(svg('text', {
+      class: 'end-label', x: right ? ex + 12 : ex - 12, y: Math.max(y0 + 12, Math.min(y1 - 4, ey + (ey < 40 ? 20 : -8))),
+      'text-anchor': right ? 'start' : 'end',
+    }, Math.round(P(b)) + '%'));
+  }
+
+  function renderPrefs() {
+    Array.prototype.forEach.call($('side-seg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.side === st.side)); });
+    Array.prototype.forEach.call($('voice-seg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.voice === st.voice)); });
+  }
+  function renderAll() { renderPrefs(); renderBoard(); renderAway(); renderRecap(); }
+  function renderLive() { renderBoard(); renderAway(); renderRecap(); }
+
+  // ---------- replay clock (wall clock based, so a hidden tab still moves on) ----------
+  function tick() {
+    var t = Date.now();
+    if (!st.playing || st.now >= N) { st.lastTick = t; return; }
+    var steps = Math.floor((t - st.lastTick) / st.speed);
+    if (steps <= 0) return;
+    st.lastTick += steps * st.speed;
+    st.now = Math.min(N, st.now + steps);
+    if (st.now >= N) st.playing = false;
+    renderLive();
+  }
+
+  function jump(to, seen) {
+    st.now = Math.max(0, Math.min(N, to));
+    if (seen !== undefined) st.seen = seen;
+    if (st.seen > st.now) st.seen = st.now;
+    st.lastTick = Date.now();
+    st.welcome = false;
+  }
+
+  function lookAway() {
+    var k = st.now;
+    while (k < N && S[k].gl - S[st.now].gl < 18) k++;
+    if (k === st.now) return;
+    jump(k, st.now);
+    st.win = 'away';
+    st.welcome = true;
+    takeRecap(st.aiOn);
+    $('away').scrollIntoView({ block: 'nearest' });
+  }
+
+  // ---------- ask ----------
+  function ask(q) {
+    q = String(q || '').trim();
+    if (!q) return;
+    var ctx = E.buildAskContext(tl, st.now, st.side);
+    var at = S[st.now].overText + ' overs';
+    var item = el('div', 'qa');
+    var ans = el('p', 'qa-a', '');
+    var meta = el('p', 'qa-meta', '');
+    item.appendChild(el('p', 'qa-q', q));
+    item.appendChild(ans);
+    item.appendChild(meta);
+    $('ask-thread').prepend(item);
+
+    var kind = AI.mode().kind;
+    if (kind !== 'artifact' && kind !== 'server') {
+      ans.textContent = V.quickAnswer(ctx, q);
+      meta.textContent = 'Scorecard answer at ' + at + '. The AI narrator is off in this view.';
+      return;
+    }
+    ans.textContent = 'Thinking...';
+    $('ask-send').disabled = true;
+    AI.ask(ctx, st.voice, q, function (text) { ans.textContent = text; }).then(function (res) {
+      $('ask-send').disabled = false;
+      if (!res.ok) {
+        ans.textContent = V.quickAnswer(ctx, q);
+        meta.textContent = res.message + ' Scorecard answer at ' + at + '.';
+        return;
+      }
+      ans.textContent = res.answer.trim();
+      var c = G.check(res.answer, G.allowedNumbers(ctx));
+      if (c.ok) meta.textContent = 'AI answer at ' + at + '. Every number in it appears on the scorecard.';
+      else {
+        meta.className = 'qa-meta warn';
+        meta.textContent = 'AI answer at ' + at + '. Not found on the scorecard: ' + c.bad.join(', ') + '. Treat those with care.';
+      }
+    });
+  }
+
+  // ---------- wiring ----------
+  function on(id, ev, fn) { $(id).addEventListener(ev, fn); }
+
+  on('side-seg', 'click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    st.side = b.dataset.side; save('side', st.side); takeRecap(st.aiOn);
+  });
+  on('voice-seg', 'click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    st.voice = b.dataset.voice; save('voice', st.voice); takeRecap(st.aiOn);
+  });
+  on('window-chips', 'click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    st.win = b.dataset.win; takeRecap(st.aiOn);
+  });
+  on('catchup', 'click', function () { st.welcome = false; takeRecap(true); });
+  on('caught', 'click', function () { st.seen = st.now; st.welcome = false; takeRecap(false); });
+  on('lookaway', 'click', lookAway);
+  on('lookaway-inline', 'click', lookAway);
+  on('play', 'click', function () { st.playing = !st.playing; st.lastTick = Date.now(); renderBoard(); });
+  on('speed', 'change', function (e) { st.speed = Number(e.target.value); st.lastTick = Date.now(); });
+  on('scrub', 'input', function (e) { jump(Number(e.target.value)); takeRecap(false); });
+  on('jump-start', 'click', function () { jump(START_NOW, START_SEEN); st.win = 'away'; st.playing = true; takeRecap(st.aiOn); });
+  on('jump-last', 'click', function () { jump(E.indexAt(tl, 2, 114)); st.playing = true; takeRecap(st.aiOn); });
+  on('ask-form', 'submit', function (e) {
+    e.preventDefault();
+    ask($('ask-input').value);
+    $('ask-input').value = '';
+  });
+
+  ['Kya hua? What changed the match?', 'What do they need now?', 'Who has overs left to bowl?', 'Who is winning and why?'].forEach(function (q, i) {
+    var b = el('button', '', q);
+    b.type = 'button';
+    b.id = 'ask-chip-' + i;
+    b.addEventListener('click', function () { ask(q); });
+    $('ask-chips').appendChild(b);
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      st.seen = st.now; // they were watching until this ball
+      return;
+    }
+    tick();
+    if (S[st.now].gl - S[st.seen].gl >= 6) {
+      st.win = 'away';
+      st.welcome = true;
+      takeRecap(st.aiOn);
+    }
+  });
+
+  var resizeQueued = false;
+  window.addEventListener('resize', function () {
+    if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(function () { resizeQueued = false; if (st.recap) renderWorm(); });
+  });
+
+  $('scrub').max = N;
+  $('speed').value = String(st.speed);
+  takeRecap(false);
+  setInterval(tick, 250);
+  AI.detect().then(function (m) { $('ai-status').textContent = m.label; });
+})();
+
+</script>

@@ -1,0 +1,17 @@
+{
+  "facts": {
+    "format": "T20, 20 overs a side",
+    "then": { "score": "62/0", "overs": "7.0", "winPct": 81 },
+    "now": { "score": "103/4", "overs": "14.0", "need": 79, "ballsLeft": 36, "requiredRate": 13.2, "winPct": 10 },
+    "moments": [ { "id": "m1", "over": "7.2 to 11.4", "title": "Collapse: 4 wickets for 13 runs" } ]
+  },
+  "cases": [
+    { "text": "Kings 62/0 se 103/4 pe aa gaye.", "ok": true, "bad": [] },
+    { "text": "Need 79 off 36, required rate 13.2.", "ok": true, "bad": [] },
+    { "text": "After 14 overs the win chance is 10%.", "ok": true, "bad": [] },
+    { "text": "They lost 5 wickets for 13.", "ok": false, "bad": ["5"] },
+    { "text": "Need 80 off 36 at 13.3 an over.", "ok": false, "bad": ["80", "13.3"] },
+    { "text": "Moment 1 was the big one.", "ok": false, "bad": ["1"] },
+    { "text": "No numbers at all here.", "ok": true, "bad": [] }
+  ]
+}

@@ -1,10 +1,27 @@
 # MatchSync
 
+[![Live demo](https://img.shields.io/badge/Live%20demo-Open%20MatchSync-1A4FC4?style=for-the-badge)](https://matchsync-710839103895.asia-south1.run.app/)
+![Google Cloud Run](https://img.shields.io/badge/Deployed%20on-Google%20Cloud%20Run-4285F4?style=flat-square&logo=googlecloud&logoColor=white)
+![Gemini](https://img.shields.io/badge/AI%20narrator-Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+
+**Live demo: [https://matchsync-710839103895.asia-south1.run.app/](https://matchsync-710839103895.asia-south1.run.app/)**
+
 A live match companion for the fan who looked away. It tells you what you missed, whether it is good or bad for your team, and what to watch next, in about 20 seconds and in your own voice.
 
 The catch up feature inside the app is called Kya Hua? (Hindi for "what happened?"), the first thing a fan asks when they look back at the screen.
 
 Built as a Forward Deployed Engineer exercise: one AI powered artifact that solves a real problem fans face during a live match.
+
+## Try it in one minute
+
+1. Open the [live demo](https://matchsync-710839103895.asia-south1.run.app/).
+2. Pick the team you support and the voice you want: Hinglish, Simple English or Analyst.
+3. Press **Demo: look away for 3 overs**, then **Catch me up**.
+4. Ask a question such as "What do they need now?" in the Ask box.
+
+The match is a sped up replay of a simulated T20 between two fictional teams. The AI narrator on the live demo runs on Gemini through the Gemini API, and the app is hosted on Google Cloud Run.
 
 ## The fan problem
 
@@ -68,10 +85,14 @@ Win chance here is a small explainable heuristic (runs needed, balls left, wicke
 
 You need Python 3.10 or newer. Node is only needed if you want to run the engine tests or rebuild.
 
+```
+git clone https://github.com/NKsCODES/matchsync-ai-cricket-companion.git
+cd matchsync-ai-cricket-companion
+```
+
 Windows (PowerShell):
 
 ```
-cd matchsync
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -81,7 +102,6 @@ uvicorn server.main:app --port 8000
 macOS or Linux:
 
 ```
-cd matchsync
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -97,17 +117,17 @@ Without an API key the app runs fully on the instant narrator. The AI narrator l
 Copy `.env.example` to `.env`, fill in two lines, and restart the server.
 
 ```
-LLM_PROVIDER=anthropic
+LLM_PROVIDER=gemini
 LLM_API_KEY=your key here
 ```
 
 | LLM_PROVIDER | Needs | Notes |
 | --- | --- | --- |
-| anthropic | API key | Default model claude-haiku-4-5-20251001 |
-| openai | API key | Default model gpt-4o-mini. Set LLM_MODEL for another, GPT-5 family included |
-| groq | API key | Has a free tier |
-| gemini | API key | Uses the OpenAI compatible endpoint |
-| ollama | Nothing | Local model, run `ollama serve` first |
+| anthropic | API key, paid | Default model claude-haiku-4-5-20251001 |
+| openai | API key, paid | Default model gpt-4o-mini. Set LLM_MODEL for another, GPT-5 family included |
+| groq | API key, free plan | Default model llama-3.3-70b-versatile. Rate limited |
+| gemini | API key, free tier | Default model gemini-3.8-flash. Rate limited |
+| ollama | Nothing, free | Local model, run `ollama serve` first and set LLM_MODEL |
 
 Default model names for providers other than Anthropic are a starting point. Providers retire models often, so set `LLM_MODEL` to a current model from your provider if a call fails with a model error. `LLM_BASE_URL` points the server at any other OpenAI compatible endpoint.
 
@@ -133,7 +153,7 @@ Say yes when gcloud asks to enable the Cloud Run, Cloud Build and Artifact Regis
 To turn on the AI narrator on the deployed service:
 
 ```
-gcloud run services update matchsync --region asia-south1 --update-env-vars LLM_PROVIDER=anthropic,LLM_API_KEY=your_key
+gcloud run services update matchsync --region asia-south1 --update-env-vars LLM_PROVIDER=gemini,LLM_API_KEY=your_key
 ```
 
 A public link with a key means every visitor's "Catch me up" spends your key. The server caps this with `AI_CALLS_PER_IP_PER_MINUTE` (default 12) and `AI_CALLS_PER_HOUR` (default 600). Set a spend limit with your model provider as well, and delete the service when the review is over with `gcloud run services delete matchsync --region asia-south1`.
@@ -174,7 +194,7 @@ web/
   engine.js           facts engine
   voices.js           instant narrator and scorecard answers
   guard.js            number guard
-  ai.js               AI transport (hosted demo, local server, or none)
+  ai.js               AI transport (local server, embedded host, or none)
   app.js              UI and replay clock
 server/
   main.py             FastAPI app: static files, /api/recap, /api/ask, /api/health
@@ -185,7 +205,7 @@ scripts/
   make_match.mjs      writes web/data.js from an over by over script
   build.mjs           writes web/prompts.js and dist/matchsync.html
 tests/                engine tests (node) and server tests (pytest)
-dist/matchsync.html     single file build, the form the hosted demo is published in
+dist/matchsync.html   single file build that opens without a server
 ```
 
 ## Plugging in a real feed
@@ -206,7 +226,7 @@ The engine needs one array of ball events. Map your provider to this shape and e
 - The match is simulated and the teams and players are fictional. I did not want to invent ball by ball data for real players.
 - The win chance model is a heuristic, not trained on real matches.
 - The number guard checks numbers, not names or claims. A wrong player name with no number would pass.
-- The facts engine runs in the browser so the hosted demo needs no backend. In production it would run server side next to the feed.
+- The facts engine runs in the browser to keep the demo simple. In production it would run server side next to the feed.
 
 ## What I would do next
 
@@ -216,3 +236,7 @@ The engine needs one array of ball events. Map your provider to this shape and e
 4. Replace the heuristic with a model trained on ball by ball history, and measure recap quality with fan ratings.
 5. More languages. Hindi, Marathi, Tamil, Telugu and Bengali, by voice as well as text.
 6. Extend the guard from numbers to names and events.
+
+## Author
+
+Niraj Koli. [GitHub](https://github.com/NKsCODES)
